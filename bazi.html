@@ -399,10 +399,6 @@
     font-family:"Noto Serif SC",serif;font-weight:700;font-size:14px;
     color:#f2ede0;margin-bottom:2px;
   }
-  .stage-tense{
-    font-size:10.5px;color:var(--brass);font-weight:500;margin-left:6px;
-    font-family:"Noto Sans SC",sans-serif;
-  }
   .stage-sub{font-size:10.5px;color:var(--text-dim);margin-bottom:10px;}
   .stage-sentence{
     font-size:12.5px;color:var(--text-pale);line-height:1.75;margin-bottom:8px;
@@ -1746,11 +1742,10 @@ function renderStageNarrative(r, a, facts, currentAge){
     const st = STAGE_TITLES[p.name];
     const tense = stageTense(st, currentAge);
     const narrative = buildStageNarrative(p, xiCamp, facts, tense);
-    const tenseLabel = tense==='past' ? '（已经过去）' : tense==='future' ? '（还没到）' : '（正在经历）';
     const div = document.createElement('div');
     div.className='stage-block';
     div.innerHTML = `
-      <div class="stage-title">${st.title}<span class="stage-tense">${currentAge!==null?tenseLabel:''}</span></div>
+      <div class="stage-title">${st.title}</div>
       <div class="stage-sub">${st.sub}</div>
       ${narrative.sentences.map(s=>`<div class="stage-sentence">${s}</div>`).join('')}
       <div class="stage-tone">${narrative.tone}</div>
