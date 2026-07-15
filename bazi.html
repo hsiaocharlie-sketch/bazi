@@ -399,6 +399,10 @@
     font-family:"Noto Serif SC",serif;font-weight:700;font-size:14px;
     color:#f2ede0;margin-bottom:2px;
   }
+  .stage-tense{
+    font-size:10.5px;color:var(--brass);font-weight:500;margin-left:6px;
+    font-family:"Noto Sans SC",sans-serif;
+  }
   .stage-sub{font-size:10.5px;color:var(--text-dim);margin-bottom:10px;}
   .stage-sentence{
     font-size:12.5px;color:var(--text-pale);line-height:1.75;margin-bottom:8px;
@@ -1670,13 +1674,21 @@ function detectCombos(occ){
 }
 
 const STAGE_TITLES = {
-  '年柱':{title:'童年', sub:'祖辈 · 原生家庭 · 早年性格底色（0–15岁）'},
-  '月柱':{title:'青年', sub:'事业人际 · 内心性格（16–30岁）'},
-  '日柱':{title:'壮年', sub:'日支主婚姻 · 内心安全感（31–50岁，日主为自身，不参与喜忌自比）'},
-  '时柱':{title:'中老年', sub:'子女 · 外在才华 · 中老年归宿（51岁后）'}
+  '年柱':{title:'童年', sub:'祖辈 · 原生家庭 · 早年性格底色（0–15岁）', ageMin:0, ageMax:15},
+  '月柱':{title:'青年', sub:'事业人际 · 内心性格（16–30岁）', ageMin:16, ageMax:30},
+  '日柱':{title:'壮年', sub:'日支主婚姻 · 内心安全感（31–50岁，日主为自身，不参与喜忌自比）', ageMin:31, ageMax:50},
+  '时柱':{title:'中老年', sub:'子女 · 外在才华 · 中老年归宿（51岁后）', ageMin:51, ageMax:Infinity}
 };
 
-function buildStageNarrative(pillarItem, xiCamp, facts){
+// 根据当前年龄，判断这个阶段是"已经过去" / "正在经历" / "还没到"
+function stageTense(st, currentAge){
+  if(currentAge===null) return 'current'; // 拿不到当前年龄时，按现在时处理，不做特殊时态
+  if(currentAge > st.ageMax) return 'past';
+  if(currentAge < st.ageMin) return 'future';
+  return 'current';
+}
+
+function buildStageNarrative(pillarItem, xiCamp, facts, tense){
   const items = [];
   if(pillarItem.stemShishen && pillarItem.stemShishen!=='日主') items.push(pillarItem.stemShishen);
   pillarItem.hiddenList.forEach(h=> items.push(h.shishen));
@@ -1690,37 +1702,55 @@ function buildStageNarrative(pillarItem, xiCamp, facts){
     if(!seen.has(sg)){ seen.add(sg); uniqueGods.push({sg,tag}); }
   });
 
+  const LEAN_TEXT = {
+    past:   {喜:'（这段时光里，正面的部分应该占了上风）', 忌:'（这段时光里，阴影的部分可能影响更明显一些）'},
+    current:{喜:'（这方面正面的部分更容易占上风）',       忌:'（这方面要多留意阴影的部分）'},
+    future: {喜:'（到这个阶段，正面的部分会更容易占上风）', 忌:'（到这个阶段，会更需要留意阴影的部分）'}
+  };
   const sentences = uniqueGods.map(({sg,tag})=>{
     const text = annotateText(getShishenText(pillarItem.name, sg), facts);
-    const lean = tag==='喜' ? '（这方面正面的部分更容易占上风）' : '（这方面要多留意阴影的部分）';
+    const lean = LEAN_TEXT[tense][tag];
     return `<b>${sg}</b>${lean}：${text}`;
   });
 
+  const TONE_TEXT = {
+    past:   {xi:'回顾这段已经走过的时光，整体算是相对被命盘照顾、容易借上力的阶段。',
+             ji:'回顾这段已经走过的时光，消耗和压力可能更明显一些——如果当时确实过得比较辛苦，命盘上是有对应痕迹的。',
+             tie:'这段已经走过的时光喜忌参半，具体过得如何，更多还是取决于当时实际的大运流年。'},
+    current:{xi:'整体来看，这个阶段是相对被命盘照顾、容易借上力的阶段。',
+             ji:'整体来看，这个阶段消耗和压力更明显一些，需要更多主动调整心态，或借助用神对应的方位、行业来缓冲。',
+             tie:'这个阶段喜忌参半，具体走向更多取决于当时行运（大运流年）是否助力，不宜一概而论。'},
+    future: {xi:'展望这个还没到的阶段，整体大概率是相对被命盘照顾、容易借上力的一段时光。',
+             ji:'展望这个还没到的阶段，消耗和压力大概率会更明显一些，到时候可以多留意心态调整，或借助用神对应的方位、行业来缓冲。',
+             tie:'这个还没到的阶段喜忌参半，具体会过得如何，更多取决于到时候实际的大运流年，现在还不宜下定论。'}
+  };
   let tone;
   if(items.length===0){
     tone = '这个位置没有十神落入（藏干为空的情况极少见），暂无对应解读。';
   } else if(xiCount>jiCount){
-    tone = '整体来看，这个阶段是相对被命盘照顾、容易借上力的阶段。';
+    tone = TONE_TEXT[tense].xi;
   } else if(jiCount>xiCount){
-    tone = '整体来看，这个阶段消耗和压力更明显一些，需要更多主动调整心态，或借助用神对应的方位、行业来缓冲。';
+    tone = TONE_TEXT[tense].ji;
   } else {
-    tone = '这个阶段喜忌参半，具体走向更多取决于当时行运（大运流年）是否助力，不宜一概而论。';
+    tone = TONE_TEXT[tense].tie;
   }
   return {sentences, tone};
 }
 
-function renderStageNarrative(r, a, facts){
+function renderStageNarrative(r, a, facts, currentAge){
   const xiCamp = a.bangScore >= a.haoScore ? '耗身' : '帮身';
   const pillars = collectPillarBreakdown(r);
   const body = document.getElementById('stageBody');
   body.innerHTML = '';
   pillars.forEach(p=>{
     const st = STAGE_TITLES[p.name];
-    const narrative = buildStageNarrative(p, xiCamp, facts);
+    const tense = stageTense(st, currentAge);
+    const narrative = buildStageNarrative(p, xiCamp, facts, tense);
+    const tenseLabel = tense==='past' ? '（已经过去）' : tense==='future' ? '（还没到）' : '（正在经历）';
     const div = document.createElement('div');
     div.className='stage-block';
     div.innerHTML = `
-      <div class="stage-title">${st.title}</div>
+      <div class="stage-title">${st.title}<span class="stage-tense">${currentAge!==null?tenseLabel:''}</span></div>
       <div class="stage-sub">${st.sub}</div>
       ${narrative.sentences.map(s=>`<div class="stage-sentence">${s}</div>`).join('')}
       <div class="stage-tone">${narrative.tone}</div>
@@ -1988,7 +2018,15 @@ document.getElementById('goBtn').onclick = function(){
 
   const a = analyzeStrength(r);
   renderStrength(r, a);
-  renderStageNarrative(r, a, facts);
+
+  // 按周岁（生日是否已过）算出当前年龄，用于判断人生阶段的时态
+  const today = new Date();
+  let currentAge = today.getFullYear() - y;
+  const birthdayPassed = (today.getMonth()+1 > m) || (today.getMonth()+1===m && today.getDate() >= d);
+  if(!birthdayPassed) currentAge -= 1;
+  if(currentAge < 0) currentAge = null; // 出生日期在未来（理论上不该发生），不做时态判断
+
+  renderStageNarrative(r, a, facts, currentAge);
   renderMeanings(r, a, facts);
 
   const mg = r.minggong;
