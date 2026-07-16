@@ -222,6 +222,10 @@
     font-weight:700;letter-spacing:.02em;
     margin-bottom:6px;height:14px;
   }
+  .pillar .sg-click{
+    cursor:pointer;text-decoration:underline;text-decoration-style:dotted;
+    text-underline-offset:2px;
+  }
   .pillar .gan{
     font-family:"Noto Serif SC",serif;font-weight:900;
     font-size:34px;line-height:1.1;color:var(--text-ink);
@@ -922,6 +926,87 @@ function openYongModal(elem){
 }
 function closeYongModal(){
   document.getElementById('yongModal').classList.remove('show');
+}
+
+/* ============================================================
+   十神释义（参考资料）：点击命盘里任意一个十神标签弹出
+   结构固定为 定义/吉/凶/意象 四段，按用户提供的原文保留
+   ============================================================ */
+const SHISHEN_GLOSSARY = {
+  '比肩':{
+    def:'同五行、同阴阳，代表另一个自我、同辈、分身。',
+    ji:'（身弱、数量适中）有人帮扶、重情义、实在厚道、自尊心强、独立不靠人、做事踏实、能和同辈互帮互助。',
+    xiong:'（身旺、比肩成群）固执认死理、好攀比、嫉妒心重、听不进劝告；一生多同辈竞争、朋友分利、合伙破财。',
+    image:'兄弟姐妹、好朋友、同事、合伙人、自身意志力、自我主见。'
+  },
+  '劫财':{
+    def:'五行相同，但阴阳相反，专门分夺你的资源钱财。',
+    ji:'（身弱少量）讲义气、行动力强、敢闯敢拼、危难时有朋友帮扶。',
+    xiong:'（最典型，身旺多现）破财、争夺、争抢钱财感情；容易被亲友拖累、借钱不还、感情第三者、合伙亏钱。',
+    image:'竞争者、对手、损友、手足、破财损耗、冲动争斗。'
+  },
+  '食神':{
+    def:'日主五行所生，阴阳相同，温和泄秀，代表自身舒展的才华。',
+    ji:'（身旺适度）性格温和乐观、知足常乐、口才好、有艺术天赋、懂享受美食、人缘柔和、子女孝顺、福气厚；能靠技艺、餐饮、文娱求财。',
+    xiong:'（身弱/食神过多）懒散贪玩、好吃懒做、不思进取、贪图享乐、多嘴招是非、耗泄自身元气体弱。',
+    image:'才艺、口福、快乐、晚辈、学生、女命女儿、安稳福气。'
+  },
+  '伤官':{
+    def:'日主所生，阴阳相反，泄秀力度极强，主突破、叛逆、创意。',
+    ji:'（身旺有制）绝顶聪明、脑洞大、创新力强、表达能力顶尖、擅长技术策划、不墨守成规、靠才华扬名。',
+    xiong:'（身弱、无制）桀骜不驯、不服管束、顶撞领导长辈、言语刻薄、目中无人；伤官见官易招官司是非、感情波折大。',
+    image:'创意、技术、写作、叛逆、欲望、女命儿子、突发是非。'
+  },
+  '偏财':{
+    def:'我克制掌控的资源，阴阳相同，流动、意外之财。',
+    ji:'（身旺）意外奖金、出手大方、人脉广、人缘好、擅长交际应酬、眼光独到；易得横财、副业、投资、生意大额收入，异性缘旺。',
+    xiong:'（身弱偏财旺）花钱大手大脚、存不住钱、随性挥霍、耐性差；多情花心、钱财来得快去得快。',
+    image:'副业、投资、奖金、意外横财、父亲、非正式异性缘分、流动资产。'
+  },
+  '正财':{
+    def:'为我克制、阴阳相合，稳定、固定收入。',
+    ji:'（身旺有财）踏实本分、勤俭顾家、脚踏实地不投机；收入稳定（工资、固定门店、存款房产），男命代表正妻，专一顾家。',
+    xiong:'（身弱财多）吝啬抠门、眼里只有钱财、斤斤计较、财多身弱扛不住，终日求财劳累、存不住钱、格局狭隘。',
+    image:'固定工资、不动产、稳定生意、男命原配妻子、日常衣食开销。'
+  },
+  '七杀':{
+    def:'克制日主，同气相冲，强力压力、凶险，力量猛烈。',
+    ji:'（身旺有印星化解）魄力十足、胆大果决、抗压能力强、敢闯敢拼；适合军警、创业、管理、风险行业，能掌大权、镇住小人。',
+    xiong:'（无制身弱）暴躁冲动、脾气刚烈、意外灾祸、伤病、官非小人灾祸；容易被上级打压、遭遇突发危机。',
+    image:'压力、凶险、小人、军警武职、突发事故、严厉上司、事业心野心。'
+  },
+  '正官':{
+    def:'克制日主，阴阳相合，温和约束、正统规则。',
+    ji:'（身旺有官）自律守规矩、品行端正、稳定事业、有责任心、重视名誉；适合公职、体制、管理层，易得贵人提携，女命代表正缘丈夫。',
+    xiong:'（身弱官多）思想保守、顾虑太多、胆小怕事、压力缠身、循规蹈矩不敢突破、被规则束缚、领导常年打压。',
+    image:'事业官职、法律规矩、名誉、长辈领导、稳定体制工作、女命丈夫。'
+  },
+  '偏印':{
+    def:'枭神，生扶日主、阴阳相同，不情愿之生，带孤僻、玄学之气。',
+    ji:'（身弱少量）悟性极高、思维独特、擅长玄学、命理、医术、冷门技艺；直觉敏锐，适合策划、科研、小众行业。',
+    xiong:'（又叫枭神，见食神则夺食）性格孤僻内向、多疑敏感、不近人情；容易失眠抑郁、思虑过重，夺食则衣食不稳、失眠孤独、身体损耗、破财。',
+    image:'玄学、偏方、冷门手艺、继母、另类贵人、空想、孤独。'
+  },
+  '正印':{
+    def:'生扶日主、阴阳相反，无私包容之生，代表庇护、正统学识。',
+    ji:'（身弱有印）心地仁慈包容、稳重内敛、有修养、重视道德学历；易得长辈、贵人庇护有靠山，学业事业安稳，代表母亲、房产文书。',
+    xiong:'（身旺印多）依赖性极强、懒惰空想，无主见、逃避压力、多学少成、思想僵化、不懂变通。',
+    image:'学历证书、长辈母亲、房产、文书合同、宗教慈善、安稳庇护贵人。'
+  }
+};
+
+function openShishenGlossaryModal(sg){
+  const g = SHISHEN_GLOSSARY[sg];
+  if(!g) return;
+  document.getElementById('modalTitle').textContent = `${sg} · 十神释义`;
+  document.getElementById('modalBody').innerHTML = `
+    <div class="modal-sec"><div class="modal-h">定义</div><div class="modal-p">${g.def}</div></div>
+    <div class="modal-sec"><div class="modal-h">吉</div><div class="modal-p">${g.ji}</div></div>
+    <div class="modal-sec"><div class="modal-h">凶</div><div class="modal-p">${g.xiong}</div></div>
+    <div class="modal-sec"><div class="modal-h">意象</div><div class="modal-p">${g.image}</div></div>
+    <div class="modal-caveat">这份释义中"吉/凶"是随日主身强身弱而变的两种表现倾向，不是固定的好坏定论；同一个十神落在不同命盘、不同位置，实际表现会有出入，仅供参考。</div>
+  `;
+  document.getElementById('yongModal').classList.add('show');
 }
 
 // 流年、大运讲的是"这段时间整体过得怎样"，不该只锁在婚姻/童年这类单一领域，
@@ -1672,12 +1757,12 @@ function renderPillar(container, labelZh, p, dayGanIdx, isDay){
 
   const hiddenHtml = BRANCH_HIDDEN[p.zhi].map(stemIdx=>{
     const sg = tenGodOf(dayGanIdx, stemIdx);
-    return `<div class="hidden-item"><span class="hs-stem">${GAN[stemIdx]}</span>${sg}</div>`;
+    return `<div class="hidden-item"><span class="hs-stem">${GAN[stemIdx]}</span><span class="sg-click" data-sg="${sg}">${sg}</span></div>`;
   }).join('');
 
   div.innerHTML = `
     <div class="label">${labelZh}</div>
-    <div class="sg">${sgLabel}</div>
+    <div class="sg${isDay?'':' sg-click'}" ${isDay?'':`data-sg="${sgLabel}"`}>${sgLabel}</div>
     <div class="gan">${GAN[p.gan]}</div>
     <div class="wx wx-gan">${GAN_WX[p.gan]}</div>
     <div class="zhi">${ZHI[p.zhi]}</div>
@@ -1687,6 +1772,13 @@ function renderPillar(container, labelZh, p, dayGanIdx, isDay){
     <div class="nayin">${nayinOf(p.idx)}</div>
   `;
   container.appendChild(div);
+
+  div.querySelectorAll('.sg-click').forEach(el=>{
+    el.onclick = (e)=>{
+      e.stopPropagation();
+      openShishenGlossaryModal(el.dataset.sg);
+    };
+  });
 }
 
 function collectShishenOccurrences(r){
