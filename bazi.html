@@ -170,6 +170,17 @@
     display:grid;grid-template-columns:repeat(4,1fr);
     gap:0;position:relative;
   }
+  .deling-line{
+    position:relative;text-align:center;
+    margin-top:14px;padding-top:12px;
+    border-top:1px solid var(--paper-line);
+    font-size:12.5px;color:var(--text-ink-dim);
+    font-weight:600;
+  }
+  .deling-line div{margin-bottom:6px;}
+  .deling-line div:last-child{margin-bottom:0;}
+  .deling-line .dl-good{color:var(--brass-dim);}
+  .deling-line .dl-bad{color:var(--vermillion-dim);}
   .minggong-line{
     position:relative;text-align:center;
     margin-top:14px;padding-top:12px;
@@ -546,6 +557,7 @@
     <div class="meta-line" id="metaLine"></div>
     <div class="slips">
       <div class="pillars" id="pillars"></div>
+      <div class="deling-line" id="delingLine"></div>
       <div class="minggong-line" id="minggongLine"></div>
     </div>
 
@@ -592,6 +604,50 @@ const GAN = ['甲','乙','丙','丁','戊','己','庚','辛','壬','癸'];
 const ZHI = ['子','丑','寅','卯','辰','巳','午','未','申','酉','戌','亥'];
 const GAN_WX = ['木','木','火','火','土','土','金','金','水','水']; // 天干五行
 const ZHI_WX = ['水','土','木','木','土','火','火','土','金','金','土','水']; // 地支五行（本气）
+
+// 得令/失令：只看月支和日主两个字的关系
+// 木0 火1 土2 金3 水4；月支五行=日主五行(比和) 或 月支生日主 → 得令
+// 月支克日主 / 日主克月支 / 日主生月支 → 失令
+const ZHI_ELEM = [4,2,0,0,2,1,1,2,3,3,2,4]; // 子丑寅卯辰巳午未申酉戌亥 对应的五行索引
+const ELEM_NAMES5 = ['木','火','土','金','水'];
+function computeDeLing(r){
+  const dayElem = Math.floor(r.day.gan/2);
+  const monthElem = ZHI_ELEM[r.month.zhi];
+  let label, verdict;
+  if(monthElem===dayElem){
+    label = `${ELEM_NAMES5[dayElem]}比和`; verdict='得令';
+  } else if((monthElem+1)%5===dayElem){
+    label = `${ELEM_NAMES5[monthElem]}生${ELEM_NAMES5[dayElem]}`; verdict='得令';
+  } else if((monthElem+2)%5===dayElem){
+    label = `${ELEM_NAMES5[monthElem]}克${ELEM_NAMES5[dayElem]}`; verdict='失令';
+  } else if((dayElem+2)%5===monthElem){
+    label = `${ELEM_NAMES5[dayElem]}克${ELEM_NAMES5[monthElem]}`; verdict='失令';
+  } else {
+    label = `${ELEM_NAMES5[dayElem]}生${ELEM_NAMES5[monthElem]}`; verdict='失令';
+  }
+  return {label, verdict};
+}
+
+// 强根：日主对应的临官/帝旺地支，数一数四柱地支里出现了几次
+// 甲寅 乙卯 丙巳 丁午 戊戌 己未 庚申 辛酉 壬亥 癸子
+const STRONG_ROOT_ZHI = [2,3,5,6,10,7,8,9,11,0];
+function computeStrongRoot(r){
+  const rootZhi = STRONG_ROOT_ZHI[r.day.gan];
+  const branches = [r.year.zhi, r.month.zhi, r.day.zhi, r.hour.zhi];
+  return branches.filter(z=>z===rootZhi).length;
+}
+
+// 得势：年干、月干、时干（不含日主本身）里，十神属于比肩/劫财/正印/偏印（帮身camp）的位置
+function computeDeShi(r){
+  const dayGanIdx = r.day.gan;
+  const positions = [['年干', r.year.gan], ['月干', r.month.gan], ['时干', r.hour.gan]];
+  const qualifying = [];
+  positions.forEach(([label, gan])=>{
+    const sg = tenGodOf(dayGanIdx, gan);
+    if(sg==='比肩'||sg==='劫财'||sg==='正印'||sg==='偏印') qualifying.push(label);
+  });
+  return qualifying;
+}
 
 // 60甲子 -> 纳音，按 甲子/乙丑, 丙寅/丁卯 ... 两两一组，共30组
 const NAYIN_30 = [
@@ -2023,6 +2079,15 @@ document.getElementById('goBtn').onclick = function(){
 
   renderStageNarrative(r, a, facts, currentAge);
   renderMeanings(r, a, facts);
+
+  const dl = computeDeLing(r);
+  const rootCount = computeStrongRoot(r);
+  const deshi = computeDeShi(r);
+  document.getElementById('delingLine').innerHTML = `
+    <div>${dl.label}－<span class="${dl.verdict==='得令'?'dl-good':'dl-bad'}">${dl.verdict}</span></div>
+    <div>${rootCount}强根</div>
+    <div>得势：${deshi.length?deshi.join('、'):'无'}</div>
+  `;
 
   const mg = r.minggong;
   const mgSg = tenGodOf(dayGanIdx, mg.gan);
