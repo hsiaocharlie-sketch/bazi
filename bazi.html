@@ -1731,6 +1731,79 @@ function openGuluanModal(guluan, r, isMale){
   document.getElementById('yongModal').classList.add('show');
 }
 
+// 阴阳差错：十二组固定日柱，天干只涉及丙丁戊、辛壬癸六个，各配两个地支
+const YINCHA_LIST = [
+  {gan:2,zhi:0,name:'丙子'}, {gan:3,zhi:1,name:'丁丑'}, {gan:4,zhi:2,name:'戊寅'},
+  {gan:7,zhi:3,name:'辛卯'}, {gan:8,zhi:4,name:'壬辰'}, {gan:9,zhi:5,name:'癸巳'},
+  {gan:2,zhi:6,name:'丙午'}, {gan:3,zhi:7,name:'丁未'}, {gan:4,zhi:8,name:'戊申'},
+  {gan:7,zhi:9,name:'辛酉'}, {gan:8,zhi:10,name:'壬戌'}, {gan:9,zhi:11,name:'癸亥'}
+];
+function findYincha(gan, zhi){ return YINCHA_LIST.find(y=>y.gan===gan && y.zhi===zhi) || null; }
+function computeYinCha(r){
+  const dayMatch = findYincha(r.day.gan, r.day.zhi);
+  if(!dayMatch) return null;
+  return {
+    dayMatch,
+    monthMatch: findYincha(r.month.gan, r.month.zhi),
+    hourMatch: findYincha(r.hour.gan, r.hour.zhi),
+    yearMatch: findYincha(r.year.gan, r.year.zhi)
+  };
+}
+const YINCHA_FEMALE_TEXT = '和公婆相处容易有隔阂，容易婆媳矛盾，难融入夫家；姑嫂妯娌关系也不太融洽，在婆家容易觉得被孤立；夫家运势也不容易借上力，很难指望婆家扶持；夫妻之间容易冷战、三观容易对不上，小事也容易吵起来。';
+const YINCHA_MALE_TEXT = '容易和岳父岳母矛盾多，难得到女方家庭的帮扶；容易因为钱财、礼节这类事跟妻家起纠纷，关系慢慢疏远甚至断联；妻子带来的资源、嫁妆，最后大多也留不住、容易耗散；婚恋路上也容易遇阻碍，谈婚论嫁的阶段意外偏多。';
+function openYinChaModal(yc, r, a, isMale, guluan, taohuaWall){
+  const dayGanIdx = r.day.gan;
+  const otherGans = [r.year.gan, r.month.gan, r.hour.gan];
+  const hiddenGans = [];
+  [r.year.zhi, r.month.zhi, r.day.zhi, r.hour.zhi].forEach(z=> BRANCH_HIDDEN[z].forEach(s=>{ otherGans.push(s); hiddenGans.push(s); }));
+  const hasYin = otherGans.some(g=>{ const sg=tenGodOf(dayGanIdx,g); return sg==='正印'||sg==='偏印'; });
+  const hasGuanxing = otherGans.some(g=>{ const sg=tenGodOf(dayGanIdx,g); return sg==='正官'||sg==='七杀'; });
+  const hasCaixing = otherGans.some(g=>{ const sg=tenGodOf(dayGanIdx,g); return sg==='正财'||sg==='偏财'; });
+  const guirenNow = computeGuiren(r);
+  const hasProtectGuiren = ['天德贵人','月德贵人'].some(g=>guirenNow[g] && guirenNow[g].length>0);
+  const dayZhiHe = [['年支',r.year.zhi],['月支',r.month.zhi],['时支',r.hour.zhi]].find(([l,z])=>isLiuHe(yc.dayMatch.zhi, z));
+
+  // 程度分级：按《三命通会》原文，月/日/时三柱里命中几个来分档，年柱单独提示（影响最轻）
+  const coreCount = 1 + (yc.monthMatch?1:0) + (yc.hourMatch?1:0);
+  let severityLabel, severityText;
+  if(coreCount>=3){
+    severityLabel='极凶';
+    severityText='月、日、时三柱同时命中阴阳差错，古书讲"三重犯之极重"，这种情况婚恋反复、亲缘彻底疏远、事业机遇也容易频繁错失的说法最重。';
+  } else if(coreCount===2){
+    severityLabel='重度';
+    severityText=`${yc.monthMatch?'月柱':'时柱'}恰好也命中阴阳差错（${(yc.monthMatch||yc.hourMatch).name}），日月或日时两重犯，容易多婚、长期分居，跟双方长辈断往来的说法更明显。`;
+  } else {
+    severityLabel='轻度';
+    severityText='目前只是日柱单独命中，婚姻多表现为容易争吵、跟婆家或岳家关系一般，但不至于到决裂的程度。';
+  }
+  const extraNotes = [];
+  if(yc.yearMatch) extraNotes.push(`年柱恰好也是${yc.yearMatch.name}，年柱命中传统上影响最轻，但同样是一个叠加信号`);
+  const stackedShas = [];
+  if(guluan) stackedShas.push('孤鸾煞');
+  if(taohuaWall && taohuaWall.some(t=>t.type==='墙外')) stackedShas.push('墙外桃花');
+  const shangguanCount = hiddenGans.concat(otherGans).filter(g=>tenGodOf(dayGanIdx,g)==='伤官').length;
+  if(shangguanCount>=2) stackedShas.push('伤官偏旺');
+  if([r.year.zhi,r.month.zhi,r.hour.zhi].some(z=>isXunKong(z,r.day.idx))) stackedShas.push('空亡');
+  if(stackedShas.length) extraNotes.push(`叠加了${stackedShas.join('、')}，传统上认为婚姻破碎的概率会明显提升`);
+
+  const resolveParts = [];
+  if(hasProtectGuiren) resolveParts.push('命中带有天德或月德贵人，能调和阴阳错位之气');
+  if(dayZhiHe) resolveParts.push(`日柱地支被${dayZhiHe[0]}相合，合住了差错之气，隔阂会缓解不少`);
+  if(a.verdict==='身强' && hasYin) resolveParts.push('日主偏旺又带印星，性格相对稳重包容，更容易换位思考、减少人际误会');
+  if(hasCaixing && hasGuanxing) resolveParts.push('命中财星、官星都有，夫妻宫财官流通，五行相对平衡');
+
+  document.getElementById('modalTitle').textContent = `阴阳差错（日柱${yc.dayMatch.name}）`;
+  document.getElementById('modalBody').innerHTML = `
+    <div class="modal-sec"><div class="modal-h">名字含义</div><div class="modal-p">天干属阳、地支属阴，这十二天的干支之间阴阳气场出现错位、不协调，代表错位、误会、隔阂，本该成的事容易落空，亲缘关系容易变得对立——"差"是错过良机，"错"是人际感情处处别扭，主要冲着婚姻和姻亲关系（婆家、娘家）来。</div></div>
+    <div class="modal-sec"><div class="modal-h">${isMale?'男命视角':'女命视角'}</div><div class="modal-p">${isMale?YINCHA_MALE_TEXT:YINCHA_FEMALE_TEXT}</div></div>
+    <div class="modal-sec"><div class="modal-h">通用特征</div><div class="modal-p">婚姻主线上，早婚容易分手离异，晚婚（28岁后）能大幅减轻煞气，夫妻精神上不容易同频，常常无话可说，有缘无分的情况偏多；人际关系容易错位，再好的关系也容易莫名其妙闹矛盾，明明好事临门，中途也容易突发变故、功败垂成；跟双方长辈的缘分也偏淡薄，很难得到长辈实质性的帮扶，遇事更多要靠自己；性格底色上容易内心拧巴、敏感多虑，容易想太多产生误会，明明无心伤人，言语举止却总让人误解。</div></div>
+    <div class="modal-sec"><div class="modal-h">程度提示（${severityLabel}）</div><div class="modal-p">${severityText}${extraNotes.length?'另外，'+extraNotes.join('；')+'。':''}</div></div>
+    ${resolveParts.length ? `<div class="modal-caveat" style="color:var(--brass-dim);">有救则不凶：${resolveParts.join('；')}，传统上认为满足这类条件，阴阳差错带来的负面影响会大幅降低。晚婚、择偶找五行互补性情温和的对象，这两条不分命盘，谁都适用。</div>` : `<div class="modal-caveat">目前没有查到贵人、日支相合、身旺带印或财官流通这类缓解条件，可以更主动地晚婚、多花心思经营跟双方长辈的关系来缓冲。</div>`}
+    <div class="modal-caveat">这是古人凭经验总结的神煞，具体轻重还要结合整体命局旺衰、用神喜忌和大运流年一起看，不宜仅凭这一条判断婚姻或人际关系的好坏。</div>
+  `;
+  document.getElementById('yongModal').classList.add('show');
+}
+
 // 墙内/骑墙/墙外桃花：桃花地支同样按年支起三合局查（跟命宫神煞用同一套表），
 // 再看这个桃花具体落在四柱哪个位置，分三类：
 // 年支/月支=墙内，日支=骑墙，时支=墙外
@@ -2528,6 +2601,7 @@ document.getElementById('goBtn').onclick = function(){
   const sifei = computeSiFei(r);
   const sanhe = computeSanhe(r);
   const guluan = computeGuluan(r);
+  const yincha = computeYinCha(r);
 
   let rowsHtml = presentGuiren.map(name=>{
     const positions = guiren[name];
@@ -2549,6 +2623,9 @@ document.getElementById('goBtn').onclick = function(){
   if(guluan){
     rowsHtml += `<div class="guiren-row" id="guluanRow"><span class="gr-name">孤鸾煞</span><span class="gr-result gr-warn">日柱${guluan.dayMatch.name}</span></div>`;
   }
+  if(yincha){
+    rowsHtml += `<div class="guiren-row" id="yinchaRow"><span class="gr-name">阴阳差错</span><span class="gr-result gr-warn">日柱${yincha.dayMatch.name}</span></div>`;
+  }
   guirenBody.innerHTML = rowsHtml || `<div class="guiren-row" style="cursor:default;"><span class="gr-name">这张命盘暂未命中以上这些星</span></div>`;
 
   guirenBody.querySelectorAll('.guiren-row[data-name]').forEach(el=>{
@@ -2566,6 +2643,8 @@ document.getElementById('goBtn').onclick = function(){
   });
   const guluanRowEl = document.getElementById('guluanRow');
   if(guluanRowEl) guluanRowEl.onclick = ()=> openGuluanModal(guluan, r, isMale);
+  const yinchaRowEl = document.getElementById('yinchaRow');
+  if(yinchaRowEl) yinchaRowEl.onclick = ()=> openYinChaModal(yincha, r, a, isMale, guluan, taohuaWall);
 
   const mg = r.minggong;
   const mgSg = tenGodOf(dayGanIdx, mg.gan);
