@@ -185,6 +185,16 @@
     cursor:pointer;text-decoration:underline;text-decoration-style:dotted;
     text-underline-offset:2px;
   }
+  .guiren-row{
+    display:flex;justify-content:space-between;align-items:center;
+    padding:9px 2px;font-size:12.5px;
+    border-bottom:1px solid rgba(176,141,79,.12);
+    cursor:pointer;
+  }
+  .guiren-row:last-child{border-bottom:none;}
+  .guiren-row .gr-name{color:var(--text-pale);font-weight:600;}
+  .guiren-row .gr-result{color:var(--text-dim);}
+  .guiren-row .gr-result.gr-has{color:var(--brass-dim);font-weight:600;}
   .minggong-line{
     position:relative;text-align:center;
     margin-top:14px;padding-top:12px;
@@ -574,6 +584,11 @@
       <div id="strengthBody"></div>
     </div>
 
+    <div class="section-card" id="guirenCard">
+      <div class="section-title">贵人星</div>
+      <div id="guirenBody"></div>
+    </div>
+
     <div class="section-card" id="stageCard">
       <div class="section-title">人生阶段解读</div>
       <div id="stageBody"></div>
@@ -676,6 +691,76 @@ function computeChangSheng(r){
     day: longshengStage(dayGan, r.day.zhi),
     hour: longshengStage(dayGan, r.hour.zhi)
   };
+}
+
+/* ============================================================
+   贵人星：天乙、文昌、太极、天德、月德、福星、国印
+   ============================================================ */
+// 天乙贵人：按日干查，目标为地支（每个日干对应两个地支）
+const TIANYI_TABLE = [[1,7],[0,8],[11,9],[11,9],[1,7],[0,8],[1,7],[6,2],[3,5],[3,5]]; // 甲乙丙丁戊己庚辛壬癸
+// 文昌贵人：按日干查，目标为单一地支
+const WENCHANG_TABLE = [5,6,8,9,8,9,11,0,2,3];
+// 太极贵人：按日干查，目标为地支（甲乙2个，丙丁2个，戊己4个，庚辛2个，壬癸2个）
+const TAIJI_TABLE = [[0,6],[0,6],[3,9],[3,9],[4,10,1,7],[4,10,1,7],[2,11],[2,11],[5,8],[5,8]];
+// 福星贵人：按日干查，目标为单一地支
+const FUXING_TABLE = [2,1,0,9,8,7,6,5,4,3];
+// 国印贵人：按日干查，目标为单一地支
+const GUOYIN_TABLE = [10,11,1,2,1,2,4,5,7,8];
+// 天德贵人：按月支查，目标可能是天干也可能是地支（逐月不同，是天德的特殊之处）
+const TIANDE_TABLE = {
+  2:{type:'gan',v:3}, 3:{type:'zhi',v:8}, 4:{type:'gan',v:8}, 5:{type:'gan',v:7},
+  6:{type:'zhi',v:11}, 7:{type:'gan',v:0}, 8:{type:'gan',v:9}, 9:{type:'zhi',v:2},
+  10:{type:'gan',v:2}, 11:{type:'gan',v:1}, 0:{type:'zhi',v:5}, 1:{type:'gan',v:6}
+};
+// 月德贵人：按月支的三合局查，目标恒为天干
+function yuedeTargetGan(monthZhi){
+  if([2,6,10].includes(monthZhi)) return 2; // 寅午戌 -> 丙
+  if([8,0,4].includes(monthZhi)) return 8;  // 申子辰 -> 壬
+  if([11,3,7].includes(monthZhi)) return 0; // 亥卯未 -> 甲
+  return 6; // 巳酉丑 -> 庚
+}
+
+function checkZhiTargets(targets, r){
+  const positions = [['年支',r.year.zhi],['月支',r.month.zhi],['日支',r.day.zhi],['时支',r.hour.zhi]];
+  return positions.filter(([l,z])=>targets.includes(z)).map(([l])=>l);
+}
+function checkGanTargets(target, r){
+  const positions = [['年干',r.year.gan],['月干',r.month.gan],['日干',r.day.gan],['时干',r.hour.gan]];
+  return positions.filter(([l,g])=>g===target).map(([l])=>l);
+}
+
+function computeGuiren(r){
+  const dayGan = r.day.gan;
+  const tiande = TIANDE_TABLE[r.month.zhi];
+  return {
+    '天乙贵人': checkZhiTargets(TIANYI_TABLE[dayGan], r),
+    '文昌贵人': checkZhiTargets([WENCHANG_TABLE[dayGan]], r),
+    '太极贵人': checkZhiTargets(TAIJI_TABLE[dayGan], r),
+    '福星贵人': checkZhiTargets([FUXING_TABLE[dayGan]], r),
+    '国印贵人': checkZhiTargets([GUOYIN_TABLE[dayGan]], r),
+    '天德贵人': tiande.type==='gan' ? checkGanTargets(tiande.v, r) : checkZhiTargets([tiande.v], r),
+    '月德贵人': checkGanTargets(yuedeTargetGan(r.month.zhi), r)
+  };
+}
+
+const GUIREN_GLOSSARY = {
+  '天乙贵人':'命理里公认最尊贵的一个贵人星，代表遇到关键时刻能拉你一把的人。命带天乙贵人的人，危难时容易逢凶化吉，一生贵人运比较旺，走到哪里都容易有人愿意帮衬。',
+  '文昌贵人':'主读书、考试、文字表达方面的运势。命带文昌贵人的人通常悟性好、擅长学习，也容易在文书、创作、教育这类需要动脑动笔的领域有发挥。',
+  '太极贵人':'跟悟性、玄学缘分有关。命带太极贵人的人通常聪明好学、做事有始有终，为人正直，对命理、周易、宗教哲学这类偏门学问容易有天分和兴趣，命带多个还容易在这方面有所成就。',
+  '天德贵人':'二德之首，传统上认为是最能化解灾祸、逢凶化吉的一颗贵人星。命带天德的人通常心地善良、待人诚厚，一生灾祸较少，即使命局里有忌神，也能借这份力量减轻凶险。',
+  '月德贵人':'跟天德贵人性质相近，也主逢凶化吉、遇难呈祥，力道比天德稍逊一筹，但同样代表命局里有一股能化解不利因素的力量，日干或时干带月德最为明显。',
+  '福星贵人':'主一生福气是否深厚。命带福星的人通常一生衣食无缺、平安顺遂，福力比天乙贵人稍弱一些，偏向"平安是福"而不是大富大贵，纵然没有大运扶助，日子也能过得安稳快乐。',
+  '国印贵人':'跟权力、印信、地位有关，古代以印信代表权力。命带国印的人通常为人诚实可靠、办事公道、循规蹈矩，容易有掌权、任职、置产这类际遇——具体是好的变动还是麻烦的变动，要看这个位置落在喜神还是忌神上。'
+};
+function openGuirenModal(name, positions){
+  const text = GUIREN_GLOSSARY[name];
+  if(!text) return;
+  document.getElementById('modalTitle').textContent = name;
+  document.getElementById('modalBody').innerHTML = `
+    <div class="modal-sec"><div class="modal-h">${positions.length?('命中'+positions.join('、')):'命中未见此贵人'}</div><div class="modal-p">${text}</div></div>
+    <div class="modal-caveat">贵人星的力量大小还要看是否临近日主、有没有被冲克，这里只做"有没有"的判断，没有再往下细分强弱，仅供参考。</div>
+  `;
+  document.getElementById('yongModal').classList.add('show');
 }
 
 // 十二长生释义：把五行力量强弱比喻成人从出生到入土的一个生命周期
@@ -2186,6 +2271,17 @@ document.getElementById('goBtn').onclick = function(){
       const pos = el.dataset.pos;
       openChangShengModal(cs[pos], pos);
     };
+  });
+
+  const guiren = computeGuiren(r);
+  const guirenBody = document.getElementById('guirenBody');
+  guirenBody.innerHTML = Object.keys(guiren).map(name=>{
+    const positions = guiren[name];
+    const resultText = positions.length ? positions.join('、') : '无';
+    return `<div class="guiren-row" data-name="${name}"><span class="gr-name">${name}</span><span class="gr-result ${positions.length?'gr-has':''}">${resultText}</span></div>`;
+  }).join('');
+  guirenBody.querySelectorAll('.guiren-row').forEach(el=>{
+    el.onclick = ()=> openGuirenModal(el.dataset.name, guiren[el.dataset.name]);
   });
 
   const mg = r.minggong;
