@@ -195,6 +195,7 @@
   .guiren-row .gr-name{color:var(--text-pale);font-weight:600;}
   .guiren-row .gr-result{color:var(--text-dim);}
   .guiren-row .gr-result.gr-has{color:var(--brass-dim);font-weight:600;}
+  .guiren-row .gr-result.gr-warn{color:var(--vermillion-dim);font-weight:600;}
   .minggong-line{
     position:relative;text-align:center;
     margin-top:14px;padding-top:12px;
@@ -742,6 +743,57 @@ function computeGuiren(r){
     '月德贵人': checkGanTargets(yuedeTargetGan(r.month.zhi), r)
   };
 }
+
+// 天罗地网（近代查法）：四柱地支同时出现戌+亥为天罗，同时出现辰+巳为地网
+function computeTianluoDiwang(r){
+  const branches = [r.year.zhi, r.month.zhi, r.day.zhi, r.hour.zhi];
+  const results = [];
+  if(branches.includes(10) && branches.includes(11)) results.push('天罗');
+  if(branches.includes(4) && branches.includes(5)) results.push('地网');
+  return results;
+}
+const TIANLUO_DIWANG_TEXT = {
+  '天罗':'传统上认为主疾病、官非牢狱之灾，运势容易多阻碍，尤其男命更要留意——男命命犯天罗，做事容易多受阻碍、跟祖产祖业缘分较薄，感情婚姻、身体健康这些方面也容易生出波折。女命虽然相对没这么忌讳，但命理上也主运势不算顺畅，同样值得留意。',
+  '地网':'传统上认为主疾病、官非牢狱之灾，运势容易多阻碍，尤其女命更要留意——女命命犯地网，婚姻感情容易不顺，人生里也容易碰上小人算计、磨难波折较多。男命虽然相对没这么忌讳，但同样主运势欠佳，不宜掉以轻心。'
+};
+function openTianluoDiwangModal(name, guiren){
+  const text = TIANLUO_DIWANG_TEXT[name];
+  const resolvers = ['天德贵人','月德贵人','天乙贵人'].filter(g=>guiren[g] && guiren[g].length>0);
+  const resolveNote = resolvers.length
+    ? `<div class="modal-caveat">好消息：命中同时带有${resolvers.join('、')}，传统上认为这类贵人能减轻${name}的凶性，不必过于担心。</div>`
+    : '';
+  document.getElementById('modalTitle').textContent = name;
+  document.getElementById('modalBody').innerHTML = `
+    <div class="modal-sec"><div class="modal-p">${text}</div></div>
+    ${resolveNote}
+    <div class="modal-caveat">这是古人凭经验总结出的神煞，不一定就真的对应牢狱或疾病之灾，还要结合命局整体组合、大运流年一起看，不宜单凭这一条下定论。</div>
+  `;
+  document.getElementById('yongModal').classList.add('show');
+}
+
+// 四废日：月支所在季节 + 日柱干支恰好是当令之气所克的那两个日子之一
+const SIFEI_TABLE = [
+  {months:[2,3,4],   gan:6, zhi:8,  name:'庚申', season:'春', elem:'金废'},
+  {months:[2,3,4],   gan:7, zhi:9,  name:'辛酉', season:'春', elem:'金废'},
+  {months:[5,6,7],   gan:8, zhi:0,  name:'壬子', season:'夏', elem:'水废'},
+  {months:[5,6,7],   gan:9, zhi:11, name:'癸亥', season:'夏', elem:'水废'},
+  {months:[8,9,10],  gan:0, zhi:2,  name:'甲寅', season:'秋', elem:'木废'},
+  {months:[8,9,10],  gan:1, zhi:3,  name:'乙卯', season:'秋', elem:'木废'},
+  {months:[11,0,1],  gan:2, zhi:6,  name:'丙午', season:'冬', elem:'火废'},
+  {months:[11,0,1],  gan:3, zhi:5,  name:'丁巳', season:'冬', elem:'火废'}
+];
+function computeSiFei(r){
+  return SIFEI_TABLE.find(s=> s.months.includes(r.month.zhi) && s.gan===r.day.gan && s.zhi===r.day.zhi) || null;
+}
+function openSiFeiModal(sifei){
+  document.getElementById('modalTitle').textContent = `四废日（${sifei.name}·${sifei.elem}）`;
+  document.getElementById('modalBody').innerHTML = `
+    <div class="modal-sec"><div class="modal-p">日柱是${sifei.name}，恰好生在${sifei.season}季——这个季节当令的五行正好克制${sifei.name}这个日柱的五行，让它处于"被压到没用"的状态，传统上叫"${sifei.elem}"。古籍上认为命带四废的人容易身弱多病、做事有始无终，如果命局本身偏弱又没有印星生扶救应，说法会更重一些，甚至提到伤残、官司口舌这类。不过现代命理更多把它看作一种象征性的提醒——才华容易被压抑、时运不济，需要多一点耐心等时机，而不是板上钉钉的凶断。</div></div>
+    <div class="modal-caveat">命局里如果有印星生扶日主，或者地支凑成三合局来帮衬，传统上认为能缓解四废带来的不利影响；这一条同样只做"有没有"的判断，具体轻重还要结合整体命局和大运流年一起看。</div>
+  `;
+  document.getElementById('yongModal').classList.add('show');
+}
+
 
 const GUIREN_GLOSSARY = {
   '天乙贵人':'命理里公认最尊贵的一个贵人星，代表遇到关键时刻能拉你一把的人。命带天乙贵人的人，危难时容易逢凶化吉，一生贵人运比较旺，走到哪里都容易有人愿意帮衬。',
@@ -2323,6 +2375,8 @@ document.getElementById('goBtn').onclick = function(){
   const guirenBody = document.getElementById('guirenBody');
   const presentGuiren = Object.keys(guiren).filter(name=>guiren[name].length>0);
   const taohuaWall = computeTaohuaWall(r);
+  const tianluoDiwang = computeTianluoDiwang(r);
+  const sifei = computeSiFei(r);
 
   let rowsHtml = presentGuiren.map(name=>{
     const positions = guiren[name];
@@ -2332,6 +2386,12 @@ document.getElementById('goBtn').onclick = function(){
     const twText = taohuaWall.map(it=>`${it.label}(${it.type})`).join('、');
     rowsHtml += `<div class="guiren-row" id="taohuaRow"><span class="gr-name">桃花</span><span class="gr-result gr-has">${twText}</span></div>`;
   }
+  tianluoDiwang.forEach(name=>{
+    rowsHtml += `<div class="guiren-row tld-row" data-tld="${name}"><span class="gr-name">${name}</span><span class="gr-result gr-warn">命中</span></div>`;
+  });
+  if(sifei){
+    rowsHtml += `<div class="guiren-row" id="sifeiRow"><span class="gr-name">四废日</span><span class="gr-result gr-warn">${sifei.name}·${sifei.elem}</span></div>`;
+  }
   guirenBody.innerHTML = rowsHtml || `<div class="guiren-row" style="cursor:default;"><span class="gr-name">这张命盘暂未命中以上这些星</span></div>`;
 
   guirenBody.querySelectorAll('.guiren-row[data-name]').forEach(el=>{
@@ -2339,6 +2399,11 @@ document.getElementById('goBtn').onclick = function(){
   });
   const taohuaRowEl = document.getElementById('taohuaRow');
   if(taohuaRowEl) taohuaRowEl.onclick = ()=> openTaohuaModal(taohuaWall);
+  guirenBody.querySelectorAll('.tld-row').forEach(el=>{
+    el.onclick = ()=> openTianluoDiwangModal(el.dataset.tld, guiren);
+  });
+  const sifeiRowEl = document.getElementById('sifeiRow');
+  if(sifeiRowEl) sifeiRowEl.onclick = ()=> openSiFeiModal(sifei);
 
   const mg = r.minggong;
   const mgSg = tenGodOf(dayGanIdx, mg.gan);
