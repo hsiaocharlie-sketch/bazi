@@ -104,6 +104,23 @@
   .al-row .al-tag.yi{background:rgba(176,141,79,.35);color:#e8dfc8;}
   .al-row .al-tag.ji{background:rgba(166,53,44,.35);color:#e8dfc8;}
   .al-row .al-text{flex:1;color:var(--text-pale);}
+  .al-personal{
+    margin-top:16px;padding-top:14px;
+    border-top:1px solid rgba(176,141,79,.25);
+  }
+  .al-personal .al-p-title{
+    font-size:12px;color:var(--vermillion-dim);font-weight:700;
+    letter-spacing:.04em;margin-bottom:8px;
+  }
+  .al-personal .al-p-tag{
+    display:inline-block;font-size:11px;padding:2px 8px;border-radius:10px;
+    font-weight:700;margin-bottom:8px;
+  }
+  .al-personal .al-p-tag.xi{background:rgba(176,141,79,.35);color:#e8dfc8;}
+  .al-personal .al-p-tag.ji{background:rgba(166,53,44,.35);color:#e8dfc8;}
+  .al-personal .al-p-text{font-size:12.5px;color:var(--text-pale);line-height:1.75;}
+  .al-personal .al-p-note{font-size:11px;color:var(--text-dim);margin-top:8px;line-height:1.6;}
+  .al-personal .al-p-empty{font-size:12px;color:var(--text-dim);line-height:1.7;}
   label{
     display:block;font-size:12px;color:var(--brass);
     letter-spacing:.06em;margin-bottom:7px;font-weight:500;
@@ -551,6 +568,7 @@
     <div id="almanacResult" style="display:none;">
       <div class="al-headline" id="alHeadline"></div>
       <div class="al-yj" id="alYiJi"></div>
+      <div id="alPersonal"></div>
     </div>
   </div>
 
@@ -2467,6 +2485,41 @@ function computeJianChu(y,m,d){
   return {name, dayGan, dayZhi, monthZhi, yiji: JIANCHU_YIJI[name]};
 }
 
+// "对照我的命盘"：把候选日期的干支当成一个迷你流年，
+// 套用已经起好的命盘（十神喜忌 + 冲合刑，含命宫）来比对
+function buildAlPersonal(jc){
+  if(!lastChart){
+    return `<div class="al-personal"><div class="al-p-title">对照我的命盘</div><div class="al-p-empty">还没有起盘——在下面输入你的出生信息、点"起盘"之后，回到这里就能看到针对你命盘的具体分析了。</div></div>`;
+  }
+  const {r, a, dayGanIdx, xiCamp} = lastChart;
+  const sg = tenGodOf(dayGanIdx, jc.dayGan);
+  const xj = SHISHEN_CAMP[sg]===xiCamp ? '喜' : '忌';
+  const notes = computeChongHe(jc.dayZhi, r, dayGanIdx, xiCamp);
+  const hasNegRelation = notes.some(n=>n.relation==='冲'||n.relation==='刑');
+
+  let verdict;
+  if(xj==='喜' && !hasNegRelation){
+    verdict = '这天的干支对你的命盘整体偏顺，是相对适合安排重要事情的日子，可以优先参考上面"建除"给出的宜忌来定具体做什么。';
+  } else if(xj==='忌' && hasNegRelation){
+    verdict = '这天的干支对你来说既不是喜神、又冲刑到命盘里的位置，双重不太顺，如果不是非办不可的事，建议避开、换一天。';
+  } else if(hasNegRelation){
+    verdict = '这天冲/刑到你命盘里的某个位置，容易有变动感或摩擦，即便这天整体十神算喜，重要的事也建议谨慎一些、留个缓冲。';
+  } else {
+    verdict = '这天的干支对你来说偏消耗（忌），不是最理想的日子，但也没有冲刑你命盘的位置，日常事务问题不大，重大决定可以再考虑考虑。';
+  }
+  const notesHtml = notes.length ? notes.map(richNoteHtml).join('') : '';
+
+  return `
+    <div class="al-personal">
+      <div class="al-p-title">对照我的命盘</div>
+      <span class="al-p-tag ${xj==='喜'?'xi':'ji'}">${sg}·${xj}</span>
+      <div class="al-p-text">${verdict}</div>
+      ${notesHtml ? `<div class="al-p-title" style="margin-top:12px;">冲合提示</div>${notesHtml}` : ''}
+      <div class="al-p-note">这里只用了命盘的十神喜忌和冲合刑三层来判断，没有叠加当时大运走势——实际决定还要结合那段时间的大运是否配合。</div>
+    </div>
+  `;
+}
+
 document.getElementById('alGoBtn').onclick = function(){
   const y=Number(alY.value), m=Number(alM.value), d=Number(alD.value);
   const jc = computeJianChu(y,m,d);
@@ -2479,6 +2532,7 @@ document.getElementById('alGoBtn').onclick = function(){
     <div class="al-row"><span class="al-tag yi">宜</span><span class="al-text">${jc.yiji.yi}</span></div>
     <div class="al-row"><span class="al-tag ji">忌</span><span class="al-text">${jc.yiji.ji}</span></div>
   `;
+  document.getElementById('alPersonal').innerHTML = buildAlPersonal(jc);
   document.getElementById('almanacResult').style.display = 'block';
 };
 document.getElementById('alGoBtn').click(); // 打开页面直接显示今天的结果
@@ -2496,6 +2550,8 @@ selH.onchange = updateShichenHint;
 updateShichenHint();
 
 let isMale = true;
+// 保存最近一次起盘的结果，供"老黄历·对照我的命盘"使用；没起过盘之前是null
+let lastChart = null;
 document.getElementById('genMale').onclick = function(){
   isMale = true;
   this.classList.add('active');
@@ -3129,6 +3185,11 @@ document.getElementById('goBtn').onclick = function(){
     : '农历超出可查范围（1900–2100年）';
   document.getElementById('metaLine').innerHTML =
     `${lunarStr}　${pad(hh)}:${pad(mi)}　·　<b>八字年 ${r.baziYear}</b>`;
+
+  // 保存这次起盘的结果，供"老黄历·对照我的命盘"使用
+  const xiCamp = a.bangScore >= a.haoScore ? '耗身' : '帮身';
+  lastChart = {r, a, dayGanIdx, xiCamp, isMale, facts};
+  document.getElementById('alGoBtn').click(); // 命盘算好了，顺手把老黄历那边的个人化区块也刷新一下
 
   document.getElementById('result').classList.add('show');
 };
