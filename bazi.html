@@ -785,11 +785,36 @@ const SIFEI_TABLE = [
 function computeSiFei(r){
   return SIFEI_TABLE.find(s=> s.months.includes(r.month.zhi) && s.gan===r.day.gan && s.zhi===r.day.zhi) || null;
 }
-function openSiFeiModal(sifei){
+const ELEM_FROM_SIFEI = {'金废':3,'水废':4,'木废':0,'火废':1}; // 木0火1土2金3水4
+function openSiFeiModal(sifei, r){
+  const elemIdx = ELEM_FROM_SIFEI[sifei.elem];
+  const yinElemIdx = (elemIdx+4)%5; // 生我（印星）五行
+  const dayGanIdx = r.day.gan;
+
+  const otherGans = [r.year.gan, r.month.gan, r.hour.gan];
+  [r.year.zhi, r.month.zhi, r.day.zhi, r.hour.zhi].forEach(z=>{
+    BRANCH_HIDDEN[z].forEach(s=>otherGans.push(s));
+  });
+  const hasYin = otherGans.some(g => {
+    const sg = tenGodOf(dayGanIdx, g);
+    return sg==='正印' || sg==='偏印';
+  });
+
+  const sanhe = computeSanhe(r);
+  const rescueSanhe = sanhe.find(g => g.elem===ELEM_NAMES5[elemIdx] || g.elem===ELEM_NAMES5[yinElemIdx]);
+
+  const parts = [];
+  if(hasYin) parts.push('命中确实带有印星（生扶日主的五行）');
+  if(rescueSanhe) parts.push(`命中形成了${rescueSanhe.name}，这个合局能直接呼应、增强被压制的这股五行力量`);
+  const rescueHtml = parts.length
+    ? `<div class="modal-sec"><div class="modal-h">核对结果：有救应</div><div class="modal-p">${parts.join('；')}，传统上认为四废带来的不利影响会打折扣，不必过于担心。</div></div>`
+    : `<div class="modal-sec"><div class="modal-h">核对结果：暂无救应</div><div class="modal-p">这张命盘里目前没有查到印星生扶，也没有形成能直接呼应的三合局，四废的影响相对没有被缓解，可以多留意上面提到的方面。</div></div>`;
+
   document.getElementById('modalTitle').textContent = `四废日（${sifei.name}·${sifei.elem}）`;
   document.getElementById('modalBody').innerHTML = `
     <div class="modal-sec"><div class="modal-p">日柱是${sifei.name}，恰好生在${sifei.season}季——这个季节当令的五行正好克制${sifei.name}这个日柱的五行，让它处于"被压到没用"的状态，传统上叫"${sifei.elem}"。古籍上认为命带四废的人容易身弱多病、做事有始无终，如果命局本身偏弱又没有印星生扶救应，说法会更重一些，甚至提到伤残、官司口舌这类。不过现代命理更多把它看作一种象征性的提醒——才华容易被压抑、时运不济，需要多一点耐心等时机，而不是板上钉钉的凶断。</div></div>
-    <div class="modal-caveat">命局里如果有印星生扶日主，或者地支凑成三合局来帮衬，传统上认为能缓解四废带来的不利影响；这一条同样只做"有没有"的判断，具体轻重还要结合整体命局和大运流年一起看。</div>
+    ${rescueHtml}
+    <div class="modal-caveat">"有没有救应"只是这套简化逻辑的一种参考判断，具体轻重还要结合整体命局旺衰和大运流年一起看。</div>
   `;
   document.getElementById('yongModal').classList.add('show');
 }
@@ -1580,6 +1605,33 @@ function checkShenSha(zhiToCheck, yearZhi){
   if(zhiToCheck===group.taohua) flags.push('桃花');
   if(zhiToCheck===group.huagai) flags.push('华盖');
   return flags;
+}
+
+// 三合局：四柱地支凑齐某一组的三个字，合化为对应五行局
+// 申子辰合水局、亥卯未合木局、寅午戌合火局、巳酉丑合金局（跟命宫神煞同一套分组）
+const SANHE_GROUPS = [
+  {members:[8,0,4],  elem:'水', name:'申子辰三合水局'},
+  {members:[11,3,7], elem:'木', name:'亥卯未三合木局'},
+  {members:[2,6,10], elem:'火', name:'寅午戌三合火局'},
+  {members:[5,9,1],  elem:'金', name:'巳酉丑三合金局'}
+];
+function computeSanhe(r){
+  const branches = new Set([r.year.zhi, r.month.zhi, r.day.zhi, r.hour.zhi]);
+  return SANHE_GROUPS.filter(g=> g.members.every(m=>branches.has(m)));
+}
+const SANHE_TEXT = {
+  '水':'申子辰三合水局：三股力量合成一股更纯粹、更集中的水，代表智慧、灵活、善于变通，也主人际关系广、善于把握机会流转；如果水本身是这张命盘的用神或印星所需，这份合局会是明显的助力。',
+  '木':'亥卯未三合木局：三股力量合成一股更纯粹、更集中的木，代表生发向上、有主见有理想，也主仁厚、有条理、擅长规划成长型的事情；如果木本身是这张命盘的用神或印星所需，这份合局会是明显的助力。',
+  '火':'寅午戌三合火局：三股力量合成一股更纯粹、更集中的火，代表热情、有冲劲、表达欲强，也主容易在需要曝光、需要感染力的领域出头；如果火本身是这张命盘的用神或印星所需，这份合局会是明显的助力。',
+  '金':'巳酉丑三合金局：三股力量合成一股更纯粹、更集中的金，代表果断、讲原则、重规矩，也主执行力强、擅长收尾和把关；如果金本身是这张命盘的用神或印星所需，这份合局会是明显的助力。'
+};
+function openSanheModal(group){
+  document.getElementById('modalTitle').textContent = group.name;
+  document.getElementById('modalBody').innerHTML = `
+    <div class="modal-sec"><div class="modal-p">${SANHE_TEXT[group.elem]}</div></div>
+    <div class="modal-caveat">三合局的力量还要看合局的地支有没有被冲破，以及这个五行对日主本身是喜是忌，不是"成局了就一定是好事"，具体还要结合整体命局判断。</div>
+  `;
+  document.getElementById('yongModal').classList.add('show');
 }
 
 // 墙内/骑墙/墙外桃花：桃花地支同样按年支起三合局查（跟命宫神煞用同一套表），
@@ -2377,6 +2429,7 @@ document.getElementById('goBtn').onclick = function(){
   const taohuaWall = computeTaohuaWall(r);
   const tianluoDiwang = computeTianluoDiwang(r);
   const sifei = computeSiFei(r);
+  const sanhe = computeSanhe(r);
 
   let rowsHtml = presentGuiren.map(name=>{
     const positions = guiren[name];
@@ -2392,6 +2445,9 @@ document.getElementById('goBtn').onclick = function(){
   if(sifei){
     rowsHtml += `<div class="guiren-row" id="sifeiRow"><span class="gr-name">四废日</span><span class="gr-result gr-warn">${sifei.name}·${sifei.elem}</span></div>`;
   }
+  sanhe.forEach((g,i)=>{
+    rowsHtml += `<div class="guiren-row sanhe-row" data-sanhe="${i}"><span class="gr-name">三合局</span><span class="gr-result gr-has">${g.name}</span></div>`;
+  });
   guirenBody.innerHTML = rowsHtml || `<div class="guiren-row" style="cursor:default;"><span class="gr-name">这张命盘暂未命中以上这些星</span></div>`;
 
   guirenBody.querySelectorAll('.guiren-row[data-name]').forEach(el=>{
@@ -2403,7 +2459,10 @@ document.getElementById('goBtn').onclick = function(){
     el.onclick = ()=> openTianluoDiwangModal(el.dataset.tld, guiren);
   });
   const sifeiRowEl = document.getElementById('sifeiRow');
-  if(sifeiRowEl) sifeiRowEl.onclick = ()=> openSiFeiModal(sifei);
+  if(sifeiRowEl) sifeiRowEl.onclick = ()=> openSiFeiModal(sifei, r);
+  guirenBody.querySelectorAll('.sanhe-row').forEach(el=>{
+    el.onclick = ()=> openSanheModal(sanhe[Number(el.dataset.sanhe)]);
+  });
 
   const mg = r.minggong;
   const mgSg = tenGodOf(dayGanIdx, mg.gan);
