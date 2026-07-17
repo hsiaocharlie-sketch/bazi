@@ -1804,6 +1804,73 @@ function openYinChaModal(yc, r, a, isMale, guluan, taohuaWall){
   document.getElementById('yongModal').classList.add('show');
 }
 
+// 十恶大败：日主本禄恰好落在自己所在旬的空亡位上（禄逢空亡），共十天，
+// 用穷举60甲子+旬空规则验证过，结果为：甲辰、乙巳、丙申、丁亥、戊戌、己丑、庚辰、辛巳、壬申、癸亥
+const LU_TABLE = [2,3,5,6,5,6,8,9,11,0]; // 甲乙丙丁戊己庚辛壬癸 各自禄位地支索引
+const SHIE_LIST = [
+  {gan:0,zhi:4,name:'甲辰'}, {gan:1,zhi:5,name:'乙巳'}, {gan:2,zhi:8,name:'丙申'},
+  {gan:3,zhi:11,name:'丁亥'}, {gan:4,zhi:10,name:'戊戌'}, {gan:5,zhi:1,name:'己丑'},
+  {gan:6,zhi:4,name:'庚辰'}, {gan:7,zhi:5,name:'辛巳'}, {gan:8,zhi:8,name:'壬申'},
+  {gan:9,zhi:11,name:'癸亥'}
+];
+function computeShiE(r){
+  return SHIE_LIST.find(s=>s.gan===r.day.gan && s.zhi===r.day.zhi) || null;
+}
+function openShiEModal(shie, r, a, guluan, taohuaWall, tianluoDiwang, yincha){
+  const dayGanIdx = r.day.gan;
+  const otherGans = [r.year.gan, r.month.gan, r.hour.gan];
+  const hiddenGans = [];
+  [r.year.zhi, r.month.zhi, r.day.zhi, r.hour.zhi].forEach(z=> BRANCH_HIDDEN[z].forEach(s=>{ otherGans.push(s); hiddenGans.push(s); }));
+  const allGans = otherGans.concat(hiddenGans);
+  const yinCount = allGans.filter(g=>{ const sg=tenGodOf(dayGanIdx,g); return sg==='正印'||sg==='偏印'; }).length;
+  const hasJiecai = allGans.some(g=>tenGodOf(dayGanIdx,g)==='劫财');
+  const shangguanCount = allGans.filter(g=>tenGodOf(dayGanIdx,g)==='伤官').length;
+  const guirenNow = computeGuiren(r);
+  const hasProtectGuiren = ['天德贵人','月德贵人'].some(g=>guirenNow[g] && guirenNow[g].length>0);
+  const luZhi = LU_TABLE[dayGanIdx];
+  const luShows = [['年',r.year.zhi],['月',r.month.zhi]].filter(([l,z])=>z===luZhi);
+
+  // 轻重分级
+  const yearChong = isChong(r.day.zhi, r.year.zhi);
+  let severityLabel, severityText;
+  if(yearChong){
+    severityLabel = '大凶';
+    severityText = '日柱和年柱地支正好相冲，古籍特别标注这种情况说法最重，容易家运衰败、大幅破财，是非官司也更容易找上门。';
+  } else {
+    severityLabel = '轻度';
+    severityText = '目前只是日柱单独命中，表现更多是财运上漏财、人生起伏偏多，整体还算可控，不至于伤到根本。';
+  }
+  const stacked = [];
+  if(shangguanCount>=2) stacked.push('伤官偏旺');
+  if(hasJiecai) stacked.push('劫财');
+  if(tianluoDiwang && tianluoDiwang.length) stacked.push(tianluoDiwang.join('、'));
+  if(yincha) stacked.push('阴阳差错');
+  const stackedText = stacked.length ? `另外，命中还叠加了${stacked.join('、')}，传统上认为破败的说法会加倍，容易多次破财、感情也容易跟着不稳。` : '';
+
+  const resolveParts = [];
+  if(hasProtectGuiren) resolveParts.push('命中带有天德或月德贵人');
+  if(yinCount>=2) resolveParts.push('命中印星比较厚重');
+  if(luShows.length) resolveParts.push(`日主本禄（${ZHI[luZhi]}）恰好在${luShows.map(x=>x[0]+'支').join('、')}上透出`);
+  const resolveHtml = resolveParts.length
+    ? `<div class="modal-caveat" style="color:var(--brass-dim);">有救则不大败：${resolveParts.join('；')}，传统上认为满足这类条件，煞气会大幅化解，最多只是轻微漏财，不至于大败家业。</div>`
+    : '';
+
+  document.getElementById('modalTitle').textContent = `十恶大败（日柱${shie.name}）`;
+  document.getElementById('modalBody').innerHTML = `
+    <div class="modal-sec"><div class="modal-h">底层原理</div><div class="modal-p">禄代表衣食、稳定收入、自身的强根；十恶大败讲的是日主自己的禄，恰好落在自己所在这一旬的空亡位置上——禄落空亡，等于根基悬空、无根无靠。古诀讲"人命若还逢此日，仓库金银化作尘"。</div></div>
+    <div class="modal-sec"><div class="modal-h">财运（最突出）</div><div class="modal-p">赚钱不难，但完全守不住财，像破碗装水，意外开销、人情借贷、投资亏损不断；难存积蓄，容易赚多少花多少，祖上产业、资产也容易损耗败光；最忌投机、担保、合伙做生意，容易因此破财负债。</div></div>
+    <div class="modal-sec"><div class="modal-h">事业祖业</div><div class="modal-p">禄星空，难继承祖业、长辈资源，大多要白手起家；工作容易频繁变动，一份事业很难长久深耕，机遇到手也容易无故错失；职场小人偏多，升职加薪阻碍重重，稳定俸禄的缘分偏薄。</div></div>
+    <div class="modal-sec"><div class="modal-h">六亲与婚姻</div><div class="modal-p">六亲缘分淡薄，父母、兄弟姐妹很难长期帮扶；婚姻根基也偏虚浮，容易婚前分手、婚后争吵冷战；心态容易浮躁、不知足，小事容易放大成矛盾，感情反复折腾。</div></div>
+    <div class="modal-sec"><div class="modal-h">心性特质</div><div class="modal-p">眼光灵活、脑子聪明，但耐性差、容易冲动消费、眼高手低；做事容易有始无终、半途而废，很难长期踏实积累。</div></div>
+    <div class="modal-sec"><div class="modal-h">程度提示（${severityLabel}）</div><div class="modal-p">${severityText}${stackedText}</div></div>
+    ${resolveHtml}
+    <div class="modal-sec"><div class="modal-h">一个提醒</div><div class="modal-p">十恶大败不是注定贫穷，核心是"不聚财、根基虚"，不是赚不到钱：日主偏旺又有印星护身的，照样能赚钱，只是花销大，做好理财规划就能化解；日主偏弱又没有吉神帮衬的，才容易常年入不敷出、奔波劳苦。后天稳扎稳打、不碰高风险投资、强制储蓄，都能大幅削弱这个煞的影响。</div></div>
+    <div class="modal-caveat">这是古人凭经验总结的神煞，具体轻重还要结合整体命局旺衰、用神喜忌和大运流年一起看，不宜仅凭这一条判断财运或人生好坏。</div>
+  `;
+  document.getElementById('yongModal').classList.add('show');
+}
+
+
 // 墙内/骑墙/墙外桃花：桃花地支同样按年支起三合局查（跟命宫神煞用同一套表），
 // 再看这个桃花具体落在四柱哪个位置，分三类：
 // 年支/月支=墙内，日支=骑墙，时支=墙外
@@ -2602,6 +2669,7 @@ document.getElementById('goBtn').onclick = function(){
   const sanhe = computeSanhe(r);
   const guluan = computeGuluan(r);
   const yincha = computeYinCha(r);
+  const shie = computeShiE(r);
 
   let rowsHtml = presentGuiren.map(name=>{
     const positions = guiren[name];
@@ -2626,6 +2694,9 @@ document.getElementById('goBtn').onclick = function(){
   if(yincha){
     rowsHtml += `<div class="guiren-row" id="yinchaRow"><span class="gr-name">阴阳差错</span><span class="gr-result gr-warn">日柱${yincha.dayMatch.name}</span></div>`;
   }
+  if(shie){
+    rowsHtml += `<div class="guiren-row" id="shieRow"><span class="gr-name">十恶大败</span><span class="gr-result gr-warn">日柱${shie.name}</span></div>`;
+  }
   guirenBody.innerHTML = rowsHtml || `<div class="guiren-row" style="cursor:default;"><span class="gr-name">这张命盘暂未命中以上这些星</span></div>`;
 
   guirenBody.querySelectorAll('.guiren-row[data-name]').forEach(el=>{
@@ -2645,6 +2716,8 @@ document.getElementById('goBtn').onclick = function(){
   if(guluanRowEl) guluanRowEl.onclick = ()=> openGuluanModal(guluan, r, isMale);
   const yinchaRowEl = document.getElementById('yinchaRow');
   if(yinchaRowEl) yinchaRowEl.onclick = ()=> openYinChaModal(yincha, r, a, isMale, guluan, taohuaWall);
+  const shieRowEl = document.getElementById('shieRow');
+  if(shieRowEl) shieRowEl.onclick = ()=> openShiEModal(shie, r, a, guluan, taohuaWall, tianluoDiwang, yincha);
 
   const mg = r.minggong;
   const mgSg = tenGodOf(dayGanIdx, mg.gan);
