@@ -1651,6 +1651,21 @@ const GULUAN_TEXT = {
   '壬子':'壬水坐子水，子水是壬水的劫财，水气汪洋。感情方面容易因为自身情绪的不稳定、对感情过度敏感，导致跟伴侣之间矛盾频发，婚姻关系容易出现危机。',
   '丙午':'丙火坐午火，午火是丙火的帝旺之地，火气极旺、气场过强。个性容易热烈直接，婚姻里容易因为过于强势、不懂得收敛锋芒，让伴侣感到压力，影响感情的长久经营。'
 };
+// 八日按"日坐十神/十二长生"性质分三类，用于女命视角（官星为夫星）的解读；
+// 戊午归入日坐羊刃（戊土帝旺同落于午，跟丙午同宫）、乙巳归入日坐伤官（巳藏丙火对乙木而言即伤官），
+// 是从已验证的十二长生规则反推出来的分类，不是另立新说
+const GULUAN_CATEGORY = {
+  '甲寅':'jueti', '辛亥':'jueti',
+  '乙巳':'shangguan', '丁巳':'shangguan', '戊申':'shangguan',
+  '丙午':'yangren', '壬子':'yangren', '戊午':'yangren'
+};
+const GULUAN_FEMALE_TEXT = {
+  'jueti':'夫星在这个位置正落于绝地，丈夫气场偏弱、难以依靠，配偶缘分偏浅，容易聚少离多。',
+  'shangguan':'日坐伤官，伤官专克官星（夫星），天生容易对伴侣挑剔、爱争执，不太服气另一半。',
+  'yangren':'日坐羊刃，性格刚烈强势，两人容易互不相让，夫妻常年冷战。'
+};
+const GULUAN_MALE_TEXT = '这八个日柱多坐劫财或伤官，财星（对男命而言是妻星）容易受克，感情上容易和伴侣有矛盾、伴侣健康欠佳，也容易有第三者分走姻缘。';
+
 function computeGuluan(r){
   const dayMatch = GULUAN_LIST.find(g=>g.gan===r.day.gan && g.zhi===r.day.zhi);
   if(!dayMatch) return null;
@@ -1658,34 +1673,60 @@ function computeGuluan(r){
   const zhiRepeat = [r.year.zhi, r.month.zhi, r.hour.zhi].includes(dayMatch.zhi);
   return {dayMatch, hourMatch: hourMatch || null, zhiRepeat};
 }
+
 function openGuluanModal(guluan, r, isMale){
   const dayGanIdx = r.day.gan;
   const otherGans = [r.year.gan, r.month.gan, r.hour.gan];
+  const otherHiddenGans = [];
   [r.year.zhi, r.month.zhi, r.day.zhi, r.hour.zhi].forEach(z=>{
-    BRANCH_HIDDEN[z].forEach(s=>otherGans.push(s));
+    BRANCH_HIDDEN[z].forEach(s=>{ otherGans.push(s); otherHiddenGans.push(s); });
   });
   const hasGuanxing = otherGans.some(g=>{
     const sg = tenGodOf(dayGanIdx, g);
     return sg==='正官' || sg==='七杀';
   });
+  const hasCaixing = otherGans.some(g=>{
+    const sg = tenGodOf(dayGanIdx, g);
+    return sg==='正财' || sg==='偏财';
+  });
+  const hasShangguanElsewhere = otherHiddenGans.concat([r.year.gan,r.month.gan,r.hour.gan]).some(g=>tenGodOf(dayGanIdx,g)==='伤官');
+  const guirenNow = computeGuiren(r);
+  const hasProtectGuiren = ['天德贵人','月德贵人','天乙贵人'].some(g=>guirenNow[g] && guirenNow[g].length>0);
+  const xunkongHit = [['年支',r.year.zhi],['月支',r.month.zhi],['时支',r.hour.zhi]].filter(([l,z])=>isXunKong(z, r.day.idx));
+  const dayZhiHe = [['年支',r.year.zhi],['月支',r.month.zhi],['时支',r.hour.zhi]].find(([l,z])=>isLiuHe(guluan.dayMatch.zhi, z));
 
-  const parts = [];
-  if(guluan.hourMatch) parts.push(`时柱恰好也是${guluan.hourMatch.name}，日时两重犯，传统上认为程度更重`);
-  if(guluan.zhiRepeat) parts.push(`日支${ZHI[guluan.dayMatch.zhi]}在命盘其他位置又重复出现了一次，传统上认为这种"重见本支"的情况程度更重`);
-  const severityHtml = parts.length
-    ? `<div class="modal-sec"><div class="modal-h">程度提示</div><div class="modal-p">${parts.join('；')}。</div></div>`
-    : '';
-  const resolveHtml = hasGuanxing
-    ? `<div class="modal-caveat" style="color:var(--brass-dim);">好消息：命中查到正官或七杀（对应配偶星），古歌讲"一见官星得子奇"，传统上认为这能在一定程度上化解孤鸾煞的不利。</div>`
-    : '';
+  // 加重因素
+  const aggravate = [];
+  if(guluan.hourMatch) aggravate.push(`时柱恰好也是${guluan.hourMatch.name}，叫"时对孤鸾"，晚年感情依旧容易波折，中年离异、晚年独居的说法更明显`);
+  if(guluan.zhiRepeat) aggravate.push(`日支${ZHI[guluan.dayMatch.zhi]}在命盘其他位置又重复出现了一次（重见本支），传统上认为程度更重`);
+  if(xunkongHit.length) aggravate.push(`${xunkongHit.map(x=>x[0]).join('、')}恰好落在空亡上`);
+  if(GULUAN_CATEGORY[guluan.dayMatch.name]==='yangren') aggravate.push('日柱本身就带羊刃');
+  if(hasShangguanElsewhere) aggravate.push('命盘其他位置也见伤官');
+  const isSevere = guluan.hourMatch && (xunkongHit.length || GULUAN_CATEGORY[guluan.dayMatch.name]==='yangren' || hasShangguanElsewhere);
+
+  const severityHtml = aggravate.length
+    ? `<div class="modal-sec"><div class="modal-h">程度提示（${isSevere?'偏重':'轻度'}）</div><div class="modal-p">${aggravate.join('；')}。${isSevere?'古歌里"若再加空亡、羊刃、伤官，极易丧偶、多次婚嫁"讲的就是这种日时双犯又叠加凶煞的情况，说法会重一些':'目前只是日柱单独命中，还没叠加时柱或其他凶煞，程度相对温和'}。</div></div>`
+    : `<div class="modal-sec"><div class="modal-h">程度提示（轻度）</div><div class="modal-p">目前只是日柱单独命中孤鸾，没有叠加时柱、空亡、羊刃或伤官这些加重因素，程度偏轻——通常表现为自身条件不差、聪慧有能力，但感情路容易坎坷、初恋难成，容易晚婚，早婚的话磨合期会比较久，夫妻精神层面不太同频，容易觉得内心孤独，但不至于到"丧偶、多次婚嫁"这么重的程度。</div></div>`;
+
+  const genderText = isMale ? GULUAN_MALE_TEXT : GULUAN_FEMALE_TEXT[GULUAN_CATEGORY[guluan.dayMatch.name]];
+
+  const resolveParts = [];
+  if(hasProtectGuiren) resolveParts.push('命中带有天德、月德或天乙贵人，能调和夫妻气场');
+  if(!isMale && hasGuanxing) resolveParts.push('命中正官透出有力，古歌讲"一见官星得子奇"');
+  if(isMale && hasCaixing) resolveParts.push('命中财星有根，感情根基相对稳固');
+  if(dayZhiHe) resolveParts.push(`日柱地支被${dayZhiHe[0]}相合，合住了孤鸾之气`);
+  const resolveHtml = resolveParts.length
+    ? `<div class="modal-caveat" style="color:var(--brass-dim);">有救则不凶：${resolveParts.join('；')}，传统上认为满足这类条件，孤鸾的煞气会大幅减轻，不必过于担心。晚婚（28岁后成婚）避开青年冲动婚嫁，同样能大幅降低离异风险，这一条不分命盘，谁都适用。</div>`
+    : `<div class="modal-caveat">目前没有查到贵人、官杀或财星、日支相合这类救应条件，可以更主动地借助后天调整（见下方"日常化解思路"）来缓冲。</div>`;
 
   document.getElementById('modalTitle').textContent = `孤鸾煞（日柱${guluan.dayMatch.name}）`;
   document.getElementById('modalBody').innerHTML = `
     <div class="modal-sec"><div class="modal-p">${GULUAN_TEXT[guluan.dayMatch.name]}</div></div>
+    <div class="modal-sec"><div class="modal-h">${isMale?'男命视角（财星为妻星）':'女命视角（官星为夫星）'}</div><div class="modal-p">${genderText}</div></div>
     ${severityHtml}
-    <div class="modal-sec"><div class="modal-h">传统说法</div><div class="modal-p">孤鸾煞主要用来看婚姻感情是否顺遂，传统上偏重论女命（跟"男怕天罗、女怕孤鸾"是同一条脉络），但男命也可以参考，主夫妻缘分偏弱、感情路上容易多些波折，不一定应验在"婚姻破裂"这么严重的程度上，现代命理更多看作是提醒需要多用心经营感情关系。</div></div>
     ${resolveHtml}
-    <div class="modal-caveat">这是古人凭经验总结的神煞，具体轻重还要结合整体命局旺衰、用神喜忌和大运流年一起看，不宜仅凭这一条判断婚姻好坏。</div>
+    <div class="modal-sec"><div class="modal-h">日常化解思路</div><div class="modal-p">性格上，可以有意收敛伤官式的尖锐脾气，减少对伴侣的挑剔、多一点包容；婚嫁选择上，尽量不急于早婚，择偶时找五行互补、性格温和的对象；风水布置上，卧室可以多用圆润柔和的摆件，少放尖锐的金属物件，摆放鸳鸯、牡丹这类旺夫妻情缘的物件也是常见做法；运势上，大运走到官星或财星旺相的年份，通常是感情趋于稳定、适合成婚生子的窗口期。</div></div>
+    <div class="modal-caveat">这是古人凭经验总结的神煞，具体轻重还要结合整体命局旺衰、用神喜忌和大运流年一起看，不宜仅凭这一条判断婚姻好坏；风水、择偶这类建议也属于民俗应用层面，仅供参考，不是决定性的规则。</div>
   `;
   document.getElementById('yongModal').classList.add('show');
 }
