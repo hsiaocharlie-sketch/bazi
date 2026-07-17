@@ -1526,6 +1526,40 @@ function checkShenSha(zhiToCheck, yearZhi){
   return flags;
 }
 
+// 墙内/骑墙/墙外桃花：桃花地支同样按年支起三合局查（跟命宫神煞用同一套表），
+// 再看这个桃花具体落在四柱哪个位置，分三类：
+// 年支/月支=墙内，日支=骑墙，时支=墙外
+function computeTaohuaWall(r){
+  const group = SHENSHA_GROUPS.find(g=>g.members.includes(r.year.zhi));
+  if(!group) return [];
+  const peachZhi = group.taohua;
+  const results = [];
+  if(r.year.zhi===peachZhi) results.push({label:'年支', type:'墙内'});
+  if(r.month.zhi===peachZhi) results.push({label:'月支', type:'墙内'});
+  if(r.day.zhi===peachZhi) results.push({label:'日支', type:'骑墙'});
+  if(r.hour.zhi===peachZhi) results.push({label:'时支', type:'墙外'});
+  return results;
+}
+
+const TAOHUA_GLOSSARY = {
+  '墙内':'桃花落在年支、月支，就是墙内桃花——年月两柱靠近祖辈、事业人际这些相对"家门以内"的领域，这份桃花更偏向正派：本人异性缘好、有姿色气质，但这份魅力"墙外的人采不到"，作风比较端正，重视夫妻感情和生活情趣，懂得为对方付出，也容易因此得到异性贵人的赏识和提拔。整体来说，墙内桃花对婚姻是加分项，不是隐患。',
+  '骑墙':'桃花落在日支，也就是夫妻宫，是自己"坐下"桃花——本人长相好看、气质出众，天生自带吸引力，人缘好；伴侣容貌佳，两人相处也有情趣。但隐患也在这里：自身魅力外放，走到哪里都容易被异性追求，内心不太耐得住平淡的婚姻，定力不足的话容易精神出轨、私下暧昧，感情路上多波折，也容易招惹第三者纠缠。传统上把这种情况单独称作"骑墙桃花"——虽然也容易不忠，但通常不至于真的跟配偶离异，介于墙内墙外之间。',
+  '墙外':'桃花落在时支，是说法最重的一种，传统上直接称"墙外桃花"。时柱主晚年、对外交际、子女这些领域：婚前异性缘络绎不绝，感情容易多段、难长久稳定；婚后到了中年、晚年，桃花依然不断，容易发展婚外情、露水情缘；负面影响也更实际——容易因为私情破财、名声受损、家庭破裂，晚年还容易被感情是非烦扰。'
+};
+const TAOHUA_COMMON_NOTE = '不管是骑墙还是墙外，这类桃花的人通常有几个共同点：长相亮眼、擅长社交、懂浪漫，异性容易主动靠近；感情边界感偏弱，不太懂得拒绝异性的示好，耳根子软；不喜欢被一段婚姻死死束缚住，内心渴望新鲜感。如果这个桃花恰好落在忌神的位置，容易直接变成"桃花劫"——因为感情破财、招惹是非纠纷，甚至伤身；但如果落在喜用神的位置，往往只代表人缘旺、容易得异性贵人相助，只要自己守住边界、够自律，不一定会真的出轨。';
+
+function openTaohuaModal(items){
+  document.getElementById('modalTitle').textContent = '桃花（墙内／骑墙／墙外）';
+  const body = items.map(it=>`<div class="modal-sec"><div class="modal-h">${it.label}：${it.type}桃花</div><div class="modal-p">${TAOHUA_GLOSSARY[it.type]}</div></div>`).join('');
+  const hasWallOrRide = items.some(it=>it.type==='骑墙'||it.type==='墙外');
+  document.getElementById('modalBody').innerHTML = `
+    ${body}
+    ${hasWallOrRide ? `<div class="modal-sec"><div class="modal-h">通用特征</div><div class="modal-p">${TAOHUA_COMMON_NOTE}</div></div>` : ''}
+    <div class="modal-caveat">桃花本身是中性的星，是助力还是隐患，最终还要看这个位置对日主是喜神还是忌神，不能只凭"有没有桃花"下结论。</div>
+  `;
+  document.getElementById('yongModal').classList.add('show');
+}
+
 // 命宫地支本身的象征（生肖/五行/季节气质），跟十神那条线是两个独立维度，
 // 不重复十神信息，专讲这个地支本身带来的性格底色
 const ZHI_SYMBOL_TEXT = {
@@ -2284,15 +2318,23 @@ document.getElementById('goBtn').onclick = function(){
   const guiren = computeGuiren(r);
   const guirenBody = document.getElementById('guirenBody');
   const presentGuiren = Object.keys(guiren).filter(name=>guiren[name].length>0);
-  guirenBody.innerHTML = presentGuiren.length
-    ? presentGuiren.map(name=>{
-        const positions = guiren[name];
-        return `<div class="guiren-row" data-name="${name}"><span class="gr-name">${name}</span><span class="gr-result gr-has">${positions.join('、')}</span></div>`;
-      }).join('')
-    : `<div class="guiren-row" style="cursor:default;"><span class="gr-name">这张命盘暂未命中以上七种贵人星</span></div>`;
+  const taohuaWall = computeTaohuaWall(r);
+
+  let rowsHtml = presentGuiren.map(name=>{
+    const positions = guiren[name];
+    return `<div class="guiren-row" data-name="${name}"><span class="gr-name">${name}</span><span class="gr-result gr-has">${positions.join('、')}</span></div>`;
+  }).join('');
+  if(taohuaWall.length){
+    const twText = taohuaWall.map(it=>`${it.label}(${it.type})`).join('、');
+    rowsHtml += `<div class="guiren-row" id="taohuaRow"><span class="gr-name">桃花</span><span class="gr-result gr-has">${twText}</span></div>`;
+  }
+  guirenBody.innerHTML = rowsHtml || `<div class="guiren-row" style="cursor:default;"><span class="gr-name">这张命盘暂未命中以上这些星</span></div>`;
+
   guirenBody.querySelectorAll('.guiren-row[data-name]').forEach(el=>{
     el.onclick = ()=> openGuirenModal(el.dataset.name, guiren[el.dataset.name]);
   });
+  const taohuaRowEl = document.getElementById('taohuaRow');
+  if(taohuaRowEl) taohuaRowEl.onclick = ()=> openTaohuaModal(taohuaWall);
 
   const mg = r.minggong;
   const mgSg = tenGodOf(dayGanIdx, mg.gan);
