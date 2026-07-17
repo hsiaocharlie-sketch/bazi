@@ -1870,6 +1870,81 @@ function openShiEModal(shie, r, a, guluan, taohuaWall, tianluoDiwang, yincha){
   document.getElementById('yongModal').classList.add('show');
 }
 
+// 墓煞：七杀天干 + 地支恰好是这个七杀干对应的墓库（辰戌丑未）
+// 七杀干直接用已验证的tenGodOf反推；阳干七杀配辰戌，阴干七杀配丑未（阳支配阳干，阴支配阴干，跟四库本身阴阳一致）
+function computeMusha(r){
+  const dayGanIdx = r.day.gan;
+  let qishaGanIdx = -1;
+  for(let g=0; g<10; g++){ if(tenGodOf(dayGanIdx,g)==='七杀'){ qishaGanIdx=g; break; } }
+  if(qishaGanIdx===-1) return null; // 理论上一定存在，保险起见
+  const muZhi = (qishaGanIdx%2===0) ? [4,10] : [1,7]; // 阳干->辰戌，阴干->丑未
+  const pillars = [['年',r.year],['月',r.month],['时',r.hour]]; // 日柱天干不可能是自己的七杀，天然排除
+  const hits = pillars.filter(([label,p]) => p.gan===qishaGanIdx && muZhi.includes(p.zhi));
+  if(!hits.length) return null;
+  return { qishaGanIdx, muZhi, hits: hits.map(h=>({label:h[0], zhi:h[1].zhi})) };
+}
+function openMushaModal(musha, r, a, guluan, tianluoDiwang, shie){
+  const dayGanIdx = r.day.gan;
+  const otherGans = [r.year.gan, r.month.gan, r.hour.gan];
+  const hiddenGans = [];
+  [r.year.zhi, r.month.zhi, r.day.zhi, r.hour.zhi].forEach(z=> BRANCH_HIDDEN[z].forEach(s=>{ otherGans.push(s); hiddenGans.push(s); }));
+  const allGans = otherGans.concat(hiddenGans);
+  const hasYin = allGans.some(g=>{ const sg=tenGodOf(dayGanIdx,g); return sg==='正印'||sg==='偏印'; });
+  const hasShiShang = allGans.some(g=>{ const sg=tenGodOf(dayGanIdx,g); return sg==='食神'||sg==='伤官'; });
+  const guirenNow = computeGuiren(r);
+  const hasProtectGuiren = ['天德贵人','月德贵人'].some(g=>guirenNow[g] && guirenNow[g].length>0);
+  // 墓库是否被冲开：辰戌冲或丑未冲，检查命中的墓煞地支跟另一支是否同时出现在四柱里
+  const allZhi = [r.year.zhi, r.month.zhi, r.day.zhi, r.hour.zhi];
+  const kuOpened = musha.hits.some(h=> allZhi.some(z=>isChong(h.zhi,z)));
+  // 日主自坐墓库（易混淆概念，单独判断）：日支对日主天干而言是否正处于十二长生"墓"这个阶段
+  const dayOwnMuku = longshengStage(r.day.gan, r.day.zhi)==='墓';
+
+  const hitLabel = musha.hits.map(h=>h.label+'柱').join('、');
+  const isShiZhu = musha.hits.some(h=>h.label==='时');
+
+  // 程度分级
+  let severityLabel, severityText;
+  if(dayOwnMuku){
+    severityLabel = '大凶';
+    severityText = '墓煞叠加日主自坐墓库，根基被困，古籍重点标注的凶局，容易体弱、抑郁、一事无成，说法最重。';
+  } else if(musha.hits.length>=2){
+    severityLabel = '重度';
+    severityText = `${hitLabel}同时命中墓煞，两柱重见，说法比单柱更重。`;
+  } else if(isShiZhu){
+    severityLabel = '中度偏重';
+    severityText = '时柱管晚年、子女，时上墓煞容易晚年孤独、子女拖累，一辈子劳碌奔波。';
+  } else {
+    severityLabel = '轻度';
+    severityText = `${hitLabel}单独命中墓煞，多是阶段性的压力、家人间的小病小矛盾，如果有贵人或其他救应，可以化解。`;
+  }
+  const stacked = [];
+  const isYangRenHit = allZhi.some(z => (dayGanIdx%2===0) && longshengStage(dayGanIdx,z)==='帝旺');
+  if(isYangRenHit) stacked.push('羊刃');
+  if(shie) stacked.push('十恶大败');
+  if(tianluoDiwang && tianluoDiwang.length) stacked.push(tianluoDiwang.join('、'));
+  const shangguanCount = allGans.filter(g=>tenGodOf(dayGanIdx,g)==='伤官').length;
+  if(shangguanCount>=2) stacked.push('伤官偏旺');
+  const stackedText = stacked.length ? `叠加了${stacked.join('、')}，传统上认为说法会更重，容易重病、官灾、婚姻破裂，甚至亲人离世这类。` : '';
+
+  const resolveParts = [];
+  if(hasYin) resolveParts.push('命中印星透干，印能化杀生身，能疏导墓中七杀之气');
+  if(hasShiShang) resolveParts.push('命中食神或伤官，食伤能制杀，容易把压力转化成事业或技术上的成就');
+  if(hasProtectGuiren) resolveParts.push('命中带有天德或月德贵人');
+  if(kuOpened) resolveParts.push('墓库被冲开了（辰戌冲或丑未冲），闷藏的七杀之气得以流通，不再闭塞伤人——不过冲库同时也代表这段时间起伏波动更明显，利弊并存');
+
+  document.getElementById('modalTitle').textContent = `墓煞（${hitLabel}${GAN[musha.qishaGanIdx]}${musha.hits.map(h=>ZHI[h.zhi]).join('/')}）`;
+  document.getElementById('modalBody').innerHTML = `
+    <div class="modal-sec"><div class="modal-h">核心定义</div><div class="modal-p">墓煞是天干七杀，恰好坐在地支的四库（辰戌丑未）上，也叫"七杀入墓"。鬼指七杀，代表压力、是非、伤病、官非、刑克六亲；墓指辰戌丑未，是收纳、囚禁、闭塞之地。古诀讲"墓中逢鬼要知之，夹煞持丘骨肉离；犯此凶星无救助，生来福寿少年亏"——凶煞被关进墓库，煞气闷在内部无法疏通，不是明面上的灾祸，而是长年的压抑、离散、损耗。</div></div>
+    <div class="modal-sec"><div class="modal-h">六亲层面（最明显）</div><div class="modal-p">古诀"夹煞持丘，亲姻哭送"：容易骨肉分离，跟父母兄弟姐妹缘分淡薄，常年分居少往来，甚至生离死别；容易刑妻克子，夫妻隔阂重、容易离异，子女体弱、缘分浅，晚年孤单；也容易被亲友拖累，长辈家人带来病痛、债务、是非麻烦。</div></div>
+    <div class="modal-sec"><div class="modal-h">人生运势</div><div class="modal-p">容易有始无终，早年风光、事业起步不错，但中年后一路下滑，晚景凄凉；容易暗藏灾祸，官非、慢性病、意外伤病常年纠缠，病痛藏在体内难以根治；心事容易埋在心底，长期抑郁焦虑，精神负担重；如果原局没有印星制杀、没有贵人化解，又叠加日主入墓，容易体弱多病、寿元偏低。</div></div>
+    <div class="modal-sec"><div class="modal-h">事业财运</div><div class="modal-p">七杀代表事业压力、官贵，入墓则容易有志难伸，才华能力被埋没，升职受阻；容易遭遇暗中小人陷害，是非纠纷不断；求财也辛苦，钱财容易被家庭、病痛、官司消耗，难存积蓄。</div></div>
+    <div class="modal-sec"><div class="modal-h">程度提示（${severityLabel}）</div><div class="modal-p">${severityText}${stackedText?'另外，'+stackedText:''}</div></div>
+    ${resolveParts.length ? `<div class="modal-caveat" style="color:var(--brass-dim);">化解：${resolveParts.join('；')}，满足这类条件，煞气会大幅减轻。</div>` : ''}
+    <div class="modal-sec"><div class="modal-h">容易混淆的三个概念</div><div class="modal-p">①墓煞≠日主入墓：墓煞是七杀坐库，日主入墓是日干自身地支见墓库（${dayOwnMuku?'这张命盘恰好两者都命中':'这张命盘目前只命中墓煞，日主本身未入墓'}），主自身衰败体弱，二者不是一回事。②墓煞≠时煞归库（吉格）：时煞归库是身强、有制，七杀藏库反而掌权、武贵；墓煞是无制、身弱，只主灾病离散，吉凶正好相反——所以上面如果查到印星或食伤制杀，也可能意味着这其实更接近"时煞归库"的吉格，而不是纯粹的墓煞凶局。③墓库本身不凶，辰戌丑未可以存钱、藏资源，只有七杀这类凶星入墓、又没有制化时，才叫墓煞。</div></div>
+    <div class="modal-caveat">这是古人凭经验总结的神煞，具体轻重还要结合整体命局旺衰、用神喜忌和大运流年一起看，不宜仅凭这一条判断健康、六亲或财运的好坏。</div>
+  `;
+  document.getElementById('yongModal').classList.add('show');
+}
 
 // 墙内/骑墙/墙外桃花：桃花地支同样按年支起三合局查（跟命宫神煞用同一套表），
 // 再看这个桃花具体落在四柱哪个位置，分三类：
@@ -2670,6 +2745,7 @@ document.getElementById('goBtn').onclick = function(){
   const guluan = computeGuluan(r);
   const yincha = computeYinCha(r);
   const shie = computeShiE(r);
+  const musha = computeMusha(r);
 
   let rowsHtml = presentGuiren.map(name=>{
     const positions = guiren[name];
@@ -2697,6 +2773,9 @@ document.getElementById('goBtn').onclick = function(){
   if(shie){
     rowsHtml += `<div class="guiren-row" id="shieRow"><span class="gr-name">十恶大败</span><span class="gr-result gr-warn">日柱${shie.name}</span></div>`;
   }
+  if(musha){
+    rowsHtml += `<div class="guiren-row" id="mushaRow"><span class="gr-name">墓煞</span><span class="gr-result gr-warn">${musha.hits.map(h=>h.label+'柱').join('、')}</span></div>`;
+  }
   guirenBody.innerHTML = rowsHtml || `<div class="guiren-row" style="cursor:default;"><span class="gr-name">这张命盘暂未命中以上这些星</span></div>`;
 
   guirenBody.querySelectorAll('.guiren-row[data-name]').forEach(el=>{
@@ -2718,6 +2797,8 @@ document.getElementById('goBtn').onclick = function(){
   if(yinchaRowEl) yinchaRowEl.onclick = ()=> openYinChaModal(yincha, r, a, isMale, guluan, taohuaWall);
   const shieRowEl = document.getElementById('shieRow');
   if(shieRowEl) shieRowEl.onclick = ()=> openShiEModal(shie, r, a, guluan, taohuaWall, tianluoDiwang, yincha);
+  const mushaRowEl = document.getElementById('mushaRow');
+  if(mushaRowEl) mushaRowEl.onclick = ()=> openMushaModal(musha, r, a, guluan, tianluoDiwang, shie);
 
   const mg = r.minggong;
   const mgSg = tenGodOf(dayGanIdx, mg.gan);
