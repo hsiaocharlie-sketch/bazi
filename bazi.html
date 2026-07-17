@@ -752,13 +752,21 @@ const GUIREN_GLOSSARY = {
   '福星贵人':'主一生福气是否深厚。命带福星的人通常一生衣食无缺、平安顺遂，福力比天乙贵人稍弱一些，偏向"平安是福"而不是大富大贵，纵然没有大运扶助，日子也能过得安稳快乐。',
   '国印贵人':'跟权力、印信、地位有关，古代以印信代表权力。命带国印的人通常为人诚实可靠、办事公道、循规蹈矩，容易有掌权、任职、置产这类际遇——具体是好的变动还是麻烦的变动，要看这个位置落在喜神还是忌神上。'
 };
+const GUIREN_POS_HINT = {
+  '年支':'祖辈/父母/早年根基，距日主较远，力道稍隔一层——多主祖上有靠、早年容易得家族或长辈关照。',
+  '月支':'事业/人际/青年，紧邻日主，力道比较直接——多主工作、社交场合容易遇到贵人，青年阶段发展相对顺。',
+  '日支':'自身/婚姻，是四支里离日主最近的位置，力道最直接——多主配偶本身就是你的贵人，或婚姻关系是你最直接的靠山。',
+  '时支':'子女/中老年，距日主较远，力道稍隔一层——多主晚年、子女方面容易得助，或子女本身有福气。'
+};
 function openGuirenModal(name, positions){
   const text = GUIREN_GLOSSARY[name];
   if(!text) return;
   document.getElementById('modalTitle').textContent = name;
+  const posHtml = positions.map(p=>`<div class="chonghe-item"><b>${p}</b>：${GUIREN_POS_HINT[p]}</div>`).join('');
   document.getElementById('modalBody').innerHTML = `
-    <div class="modal-sec"><div class="modal-h">${positions.length?('命中'+positions.join('、')):'命中未见此贵人'}</div><div class="modal-p">${text}</div></div>
-    <div class="modal-caveat">贵人星的力量大小还要看是否临近日主、有没有被冲克，这里只做"有没有"的判断，没有再往下细分强弱，仅供参考。</div>
+    <div class="modal-sec"><div class="modal-p">${text}</div></div>
+    <div class="modal-sec"><div class="modal-h">命中位置与解读</div>${posHtml}</div>
+    <div class="modal-caveat">贵人星的力量大小还要看有没有被冲克，这里只做"有没有、在哪个位置"的判断，没有再往下细分强弱，仅供参考。</div>
   `;
   document.getElementById('yongModal').classList.add('show');
 }
@@ -2275,12 +2283,14 @@ document.getElementById('goBtn').onclick = function(){
 
   const guiren = computeGuiren(r);
   const guirenBody = document.getElementById('guirenBody');
-  guirenBody.innerHTML = Object.keys(guiren).map(name=>{
-    const positions = guiren[name];
-    const resultText = positions.length ? positions.join('、') : '无';
-    return `<div class="guiren-row" data-name="${name}"><span class="gr-name">${name}</span><span class="gr-result ${positions.length?'gr-has':''}">${resultText}</span></div>`;
-  }).join('');
-  guirenBody.querySelectorAll('.guiren-row').forEach(el=>{
+  const presentGuiren = Object.keys(guiren).filter(name=>guiren[name].length>0);
+  guirenBody.innerHTML = presentGuiren.length
+    ? presentGuiren.map(name=>{
+        const positions = guiren[name];
+        return `<div class="guiren-row" data-name="${name}"><span class="gr-name">${name}</span><span class="gr-result gr-has">${positions.join('、')}</span></div>`;
+      }).join('')
+    : `<div class="guiren-row" style="cursor:default;"><span class="gr-name">这张命盘暂未命中以上七种贵人星</span></div>`;
+  guirenBody.querySelectorAll('.guiren-row[data-name]').forEach(el=>{
     el.onclick = ()=> openGuirenModal(el.dataset.name, guiren[el.dataset.name]);
   });
 
