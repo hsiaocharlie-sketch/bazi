@@ -121,6 +121,8 @@
   .al-personal .al-p-text{font-size:12.5px;color:var(--text-pale);line-height:1.75;}
   .al-personal .al-p-note{font-size:11px;color:var(--text-dim);margin-top:8px;line-height:1.6;}
   .al-personal .al-p-empty{font-size:12px;color:var(--text-dim);line-height:1.7;}
+  .al-personal .chonghe-item{color:var(--text-pale);}
+  .al-personal .chonghe-item b{color:var(--brass);}
   label{
     display:block;font-size:12px;color:var(--brass);
     letter-spacing:.06em;margin-bottom:7px;font-weight:500;
@@ -668,6 +670,11 @@
     <div class="section-card" id="careerCard">
       <div class="section-title">事业倾向</div>
       <div id="careerBody"></div>
+    </div>
+
+    <div class="section-card" id="gejuCard">
+      <div class="section-title">格局</div>
+      <div id="gejuBody"></div>
     </div>
 
     <div class="section-card" id="guirenCard">
@@ -2465,7 +2472,7 @@ function fillSelect(el, from, to, fmt){
 }
 
 const THIS_YEAR = new Date().getFullYear();
-fillSelect(selY, 1900, THIS_YEAR, y=>y+'年');
+fillSelect(selY, 1900, 2050, y=>y+'年');
 fillSelect(selM, 1, 12, m=>m+'月');
 fillSelect(selH, 0, 23, h=>String(h).padStart(2,'0')+'时');
 fillSelect(selMin, 0, 59, mi=>String(mi).padStart(2,'0')+'分');
@@ -2487,7 +2494,7 @@ selH.value = 12; selMin.value = 0;
    老黄历 · 建除十二值神
    ============================================================ */
 const alY=document.getElementById('alY'), alM=document.getElementById('alM'), alD=document.getElementById('alD');
-fillSelect(alY, 1900, THIS_YEAR+5, y=>y+'年');
+fillSelect(alY, 1900, 2050, y=>y+'年');
 fillSelect(alM, 1, 12, m=>m+'月');
 function refreshAlDays(){
   const y=Number(alY.value), m=Number(alM.value);
@@ -3052,6 +3059,62 @@ function renderCareer(r, a){
   `;
 }
 
+/* ============================================================
+   格局判断：月支本气对日主是什么十神，直接决定格局名称，
+   比肩/劫财当令有专属叫法（建禄格/羊刃格），不叫"比肩格""劫财格"
+   ============================================================ */
+const GEJU_NAME = {
+  '正官':'正官格', '七杀':'七杀格', '正印':'正印格', '偏印':'偏印格（枭神格）',
+  '正财':'正财格', '偏财':'偏财格', '食神':'食神格', '伤官':'伤官格',
+  '比肩':'建禄格', '劫财':'月劫格'
+};
+const GEJU_TEXT = {
+  '正官':'走的是循规蹈矩、按部就班往上走的路子，重视名声和社会认可，适合体制内、大机构，或者需要资质、执照这类正规门槛的行业，人生轨迹相对稳健，不喜欢投机取巧。',
+  '七杀':'走的是打拼、竞争、以力服人的路子，适合需要决断力和抗压能力的领域（军警、创业、销售、管理），人生轨迹容易大起大落，年轻时吃苦但也容易闯出一片天。',
+  '正印':'走的是学识、专业资质、被人尊重庇护的路子，适合教育、学术、医疗、宗教这类需要长期积累声望的领域，人生轨迹偏稳，容易得贵人扶持。',
+  '偏印':'走的是钻研、独门技艺、冷门专业的路子，适合技术、玄学、医术、科研这类需要专注深耕的领域，人生轨迹偏独立，不太合群但容易在细分领域做出名堂。',
+  '正财':'走的是踏实积累、勤俭持家的路子，适合实业、贸易、稳定的生意，人生轨迹偏保守务实，靠一分一毫的积累致富，不容易一夜暴富但也不容易倾家荡产。',
+  '偏财':'走的是灵活多变、抓机会的路子，适合投资、副业、多元收入这类领域，人脉广、财路活，人生轨迹起伏更明显，容易大赚也容易大亏。',
+  '食神':'走的是舒展才华、享受生活的路子，适合文娱、餐饮、艺术这类靠才艺吃饭的领域，人生轨迹偏悠闲从容，福气厚但进取心可能不够强。',
+  '伤官':'走的是打破常规、靠才华突围的路子，适合创作、设计、自由职业这类需要个人风格的领域，人生轨迹容易有波折和是非，但也最容易闯出名气。',
+  '比肩':'走的是自食其力、白手起家的路子，日主本身当令有根基，独立性强，不太依赖家里，适合靠自己打拼的行业，人生轨迹偏自主。',
+  '劫财':'走的是刚猛冒险、敢打敢拼的路子，力量比建禄格更猛烈，适合需要魄力和决断的领域，人生轨迹容易大起大落，也容易因为过刚而树敌或破财。'
+};
+function computeGeJu(r, a){
+  const dayGanIdx = r.day.gan;
+  const monthMainStem = BRANCH_HIDDEN[r.month.zhi][0];
+  const sg = tenGodOf(dayGanIdx, monthMainStem);
+  const touGan = [r.year.gan, r.month.gan, r.hour.gan].includes(monthMainStem);
+  const xiCamp = a.bangScore>=a.haoScore ? '耗身' : '帮身';
+  const xj = SHISHEN_CAMP[sg]===xiCamp ? '喜' : '忌';
+  return {sg, name:GEJU_NAME[sg], touGan, xj};
+}
+function renderGeJu(r, a){
+  const geju = computeGeJu(r, a);
+  const body = document.getElementById('gejuBody');
+  const touGanText = geju.touGan
+    ? '这个格局的天干在命盘其他位置也透出来了，格局清纯、力量集中，代表这条人生路子走得相对纯粹、见效也容易更快。'
+    : '这个格局目前只藏在月支本气里，没有透干，格局的力量偏含蓄内敛——不代表不成立，只是需要走到相应的大运流年，这股力量才容易真正显发出来。';
+  const xjText = geju.xj==='喜'
+    ? '这个格局本身在这张命盘里属于"喜"的一方，代表它对日主是助力，格局走的路子跟命盘本身的旺衰是顺着来的，相对容易顺遂发挥。'
+    : '这个格局本身在这张命盘里属于"忌"的一方，代表它对日主偏消耗——格局本身指出的路子，跟命盘整体的旺衰不完全顺，需要命里有印星或比劫这类力量来化解、撑住，才容易真正把这个格局的正面意义发挥出来，不然容易走得比较辛苦。';
+  body.innerHTML = `
+    <div class="health-item">
+      <div class="health-h">${geju.name}</div>
+      <div class="health-p">${GEJU_TEXT[geju.sg]}</div>
+    </div>
+    <div class="health-item">
+      <div class="health-h">格局清浊：${geju.touGan?'透干':'不透干'}</div>
+      <div class="health-p">${touGanText}</div>
+    </div>
+    <div class="health-item">
+      <div class="health-h">格局喜忌：${geju.xj}</div>
+      <div class="health-p">${xjText}</div>
+    </div>
+    <div class="modal-caveat" style="margin-top:8px;padding-top:8px;">格局判断的是月支本气对日主的十神关系，讲的是"这条人生路子大概长什么样"，跟前面"事业倾向"讲的"敢闯还是求稳"是两个角度，可以互相参照；格局本身没有绝对的高低贵贱，具体成就大小还要看整体命局配合和大运流年是否给力。</div>
+  `;
+}
+
 const PALACE_MEANING = {
   '年':'祖辈/父母/早年根基',
   '月':'事业/人际/青年',
@@ -3235,6 +3298,7 @@ document.getElementById('goBtn').onclick = function(){
   renderStrength(r, a);
   renderHealth(a);
   renderCareer(r, a);
+  renderGeJu(r, a);
 
   // 按周岁（生日是否已过）算出当前年龄，用于判断人生阶段的时态
   const today = new Date();
