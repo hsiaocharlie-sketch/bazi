@@ -2729,20 +2729,44 @@ const MUTUAL_SHISHEN_TEXT = {
   '比肩':'对方在你眼里，像是同类人，你们容易有共鸣、聊得来，但也可能在某些事情、资源上互相较劲。',
   '劫财':'对方在你眼里，是有冲劲、敢闯的人，你会欣赏对方的行动力，但相处中也要留意钱财或资源上的拉扯。'
 };
+function computeYongShenComplement(aAnalysis, bAnalysis, aScores, bScores){
+  const result = {bSuppliesA:null, aSuppliesB:null};
+  if(aAnalysis.yongElem!==null){
+    const avgB = bScores.reduce((s,v)=>s+v,0)/5;
+    const bRatio = avgB>0 ? bScores[aAnalysis.yongElem]/avgB : 0;
+    if(bRatio>=1.1) result.bSuppliesA = {elem:aAnalysis.yongElem, ratio:bRatio};
+  }
+  if(bAnalysis.yongElem!==null){
+    const avgA = aScores.reduce((s,v)=>s+v,0)/5;
+    const aRatio = avgA>0 ? aScores[bAnalysis.yongElem]/avgA : 0;
+    if(aRatio>=1.1) result.aSuppliesB = {elem:bAnalysis.yongElem, ratio:aRatio};
+  }
+  return result;
+}
+function mutualStemBreakdown(myDayGan, otherR){
+  const posNames = ['年干','月干','日干','时干'];
+  const stems = [otherR.year.gan, otherR.month.gan, otherR.day.gan, otherR.hour.gan];
+  return stems.map((g,i)=>({pos:posNames[i], gan:g, sg:tenGodOf(myDayGan,g)}));
+}
 function computeMatch(rA, rB){
   const heInfo = ganHeInfo(rA.day.gan, rB.day.gan);
   const branchRel = compareBranches(rA, rB);
   const dayRel = branchRel.filter(x=>x.posA==='日支' && x.posB==='日支');
   const yearRel = branchRel.filter(x=>x.posA==='年支' && x.posB==='年支');
   const otherRel = branchRel.filter(x=>!(x.posA==='日支'&&x.posB==='日支') && !(x.posA==='年支'&&x.posB==='年支'));
-  const aScores = analyzeStrength(rA).elemScore;
-  const bScores = analyzeStrength(rB).elemScore;
+  const aAnalysis = analyzeStrength(rA);
+  const bAnalysis = analyzeStrength(rB);
+  const aScores = aAnalysis.elemScore;
+  const bScores = bAnalysis.elemScore;
   const elemComp = computeElemComplement(aScores, bScores);
+  const yongComp = computeYongShenComplement(aAnalysis, bAnalysis, aScores, bScores);
   const aSeesB = tenGodOf(rA.day.gan, rB.day.gan);
   const bSeesA = tenGodOf(rB.day.gan, rA.day.gan);
   const aSeesBDist = seesOtherDist(rA.day.gan, rB);
   const bSeesADist = seesOtherDist(rB.day.gan, rA);
-  return {heInfo, dayRel, yearRel, otherRel, elemComp, aSeesB, bSeesA, aSeesBDist, bSeesADist};
+  const aSeesBStems = mutualStemBreakdown(rA.day.gan, rB);
+  const bSeesAStems = mutualStemBreakdown(rB.day.gan, rA);
+  return {heInfo, dayRel, yearRel, otherRel, elemComp, yongComp, aSeesB, bSeesA, aSeesBDist, bSeesADist, aSeesBStems, bSeesAStems, aAnalysis, bAnalysis};
 }
 
 let lastMatch = null;
@@ -2787,6 +2811,15 @@ function renderMatchView(view){
     parts.push(`<div class="health-item"><div class="health-h">其他位置：${otherText}</div><div class="health-p">除了日支和年支，两人四柱之间还有这几处冲合刑关系，力量比日支这条稍弱，但同样是两人互动模式的一种参照，合代表牵绊呼应，冲刑代表容易有摩擦变动。</div></div>`);
   }
 
+  // 用神互补——比泛泛的五行旺弱更具体，直接对准各自真正缺的那一行
+  const {bSuppliesA, aSuppliesB} = data.yongComp;
+  if(bSuppliesA || aSuppliesB){
+    const parts0 = [];
+    if(bSuppliesA) parts0.push(`第一人的用神是${ELEM_NAMES5[bSuppliesA.elem]}，而第二人命盘里${ELEM_NAMES5[bSuppliesA.elem]}的力量恰好比较充足——对第一人来说，第二人正是那种"你最需要的东西，我这里刚好有"的存在`);
+    if(aSuppliesB) parts0.push(`第二人的用神是${ELEM_NAMES5[aSuppliesB.elem]}，而第一人命盘里${ELEM_NAMES5[aSuppliesB.elem]}的力量恰好比较充足——对第二人来说，第一人正是那种"你最需要的东西，我这里刚好有"的存在`);
+    parts.push(`<div class="health-item"><div class="health-h">用神互补</div><div class="health-p">${parts0.join('；')}。这一条比单纯看五行旺弱更贴身，因为用神本来就是各自命盘里"最关键、最能扶助自己"的那一行，对方刚好能补上，传统上是相处中容易"越处越顺"的一个具体信号。</div></div>`);
+  }
+
   // 五行互补
   const {bHelpsA, aHelpsB} = data.elemComp;
   if(bHelpsA.length || aHelpsB.length){
@@ -2803,7 +2836,12 @@ function renderMatchView(view){
     parts.push(`<div class="health-item"><div class="health-h">五行互补</div><div class="health-p">两人命盘五行上没有明显的"谁补谁"的关系，各自相对独立，不算减分，只是这层互补关系不算突出。</div></div>`);
   }
 
-  // 互看十神——三个视角权重不同
+  // 互看十神——先展开四柱逐条，让每对组合都有专属的具体结果，再按视角给出侧重解读
+  function formatStemBreakdown(stems){
+    return stems.map(s=>`${s.pos}${GAN[s.gan]}是${s.sg}`).join('、');
+  }
+  const stemBreakdownHtml = `<div class="health-p" style="margin-bottom:8px;">第二人的年月日时干，在第一人眼中分别是——${formatStemBreakdown(data.aSeesBStems)}。反过来，第一人的年月日时干，在第二人眼中分别是——${formatStemBreakdown(data.bSeesAStems)}。</div>`;
+
   const aBiJieRatio = ((data.aSeesBDist['比肩']||0)+(data.aSeesBDist['劫财']||0));
   const aCaiRatio = ((data.aSeesBDist['正财']||0)+(data.aSeesBDist['偏财']||0));
   const aGuanRatio = ((data.aSeesBDist['正官']||0)+(data.aSeesBDist['七杀']||0));
@@ -2837,11 +2875,11 @@ function renderMatchView(view){
         verdict = `双方看对方都没有落在财星或官星上，配偶星没有到位——第一人眼中第二人落在"${aCat}"（${NON_CAIGUAN_TEXT[aCat]}），第二人眼中第一人落在"${bCat}"（${NON_CAIGUAN_TEXT[bCat]}），两人对这段关系的感受方式不完全对称，值得留意这份不对等是不是也体现在实际相处的重心上。不代表不能在一起，只是感情性质上会跟"非你不可"的强烈感觉不太一样，更偏细水长流。`;
       }
     }
-    parts.push(`<div class="health-item"><div class="health-h">互看十神</div><div class="health-p">对第一人来说，第二人的日主是${data.aSeesB}——${MUTUAL_SHISHEN_TEXT[data.aSeesB]}反过来，对第二人来说，第一人的日主是${data.bSeesA}——${MUTUAL_SHISHEN_TEXT[data.bSeesA]}${verdict}</div></div>`);
+    parts.push(`<div class="health-item"><div class="health-h">互看十神</div>${stemBreakdownHtml}<div class="health-p">日主对日主的核心关系上，对第一人来说第二人是${data.aSeesB}——${MUTUAL_SHISHEN_TEXT[data.aSeesB]}反过来，对第二人来说第一人是${data.bSeesA}——${MUTUAL_SHISHEN_TEXT[data.bSeesA]}${verdict}</div></div>`);
   } else if(view==='friend'){
-    parts.push(`<div class="health-item"><div class="health-h">互看十神</div><div class="health-p">对第一人来说，第二人的日主是${data.aSeesB}；对第二人来说，第一人的日主是${data.bSeesA}。交友关系里，比肩劫财最能代表"意气相投"——第一人眼中第二人的比劫类特质占比${aBiJieRatio}/4，这个比例越高，两人相处越像"同类人"，容易一拍即合，但也要留意别在小事上争强好胜。</div></div>`);
+    parts.push(`<div class="health-item"><div class="health-h">互看十神</div>${stemBreakdownHtml}<div class="health-p">交友关系里，比肩劫财最能代表"意气相投"——第一人眼中第二人的四柱里有${aBiJieRatio}项落在比劫，这个数字越高，两人相处越像"同类人"，容易一拍即合，但也要留意别在小事上争强好胜。</div></div>`);
   } else {
-    parts.push(`<div class="health-item"><div class="health-h">互看十神</div><div class="health-p">对第一人来说，第二人的日主是${data.aSeesB}；对第二人来说，第一人的日主是${data.bSeesA}。合伙关系里最值得留意的是财官这条线——第一人眼中第二人的财星占比${aCaiRatio}/4、官星（含七杀）占比${aGuanRatio}/4：财星占比高，代表对方容易给这段合作带来实际的资源和收益；官星占比高，代表对方在合作中容易居于主导、约束的一方，两人最好提前商量清楚谁主导决策，避免后续因为话语权产生矛盾。</div></div>`);
+    parts.push(`<div class="health-item"><div class="health-h">互看十神</div>${stemBreakdownHtml}<div class="health-p">合伙关系里最值得留意的是财官这条线——第一人眼中第二人的四柱里，财星占${aCaiRatio}项、官星（含七杀）占${aGuanRatio}项：财星占比高，代表对方容易给这段合作带来实际的资源和收益；官星占比高，代表对方在合作中容易居于主导、约束的一方，两人最好提前商量清楚谁主导决策，避免后续因为话语权产生矛盾。</div></div>`);
   }
 
   const viewNote = view==='romance' ? '姻缘视角侧重日支夫妻宫和配偶星（财官）是否到位，是三个视角里传统命理讲得最完整、最有专门依据的一块。'
