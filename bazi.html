@@ -2811,6 +2811,12 @@ function renderMatchView(view){
     const isCaiOrGuan = sg => ['正财','偏财','正官','七杀'].includes(sg);
     const isCai = sg => sg==='正财' || sg==='偏财';
     const isGuan = sg => sg==='正官' || sg==='七杀';
+    const categorize = sg => (sg==='比肩'||sg==='劫财') ? '比劫' : (sg==='食神'||sg==='伤官') ? '食伤' : '印';
+    const NON_CAIGUAN_TEXT = {
+      '比劫':'更像同类人、旗鼓相当的伙伴，惺惺相惜但不一定有强烈的浪漫吸引力',
+      '食伤':'是让人放松愉快、有欣赏和情趣的存在，这种欣赏更接近"喜欢跟你待在一起"，不一定是强烈的占有欲',
+      '印':'带着长辈般的安心感，容易产生依赖和信任，但这种感觉有时候更像亲情或被照顾，不一定是热烈的男女之情'
+    };
     const aHit = isCaiOrGuan(data.aSeesB), bHit = isCaiOrGuan(data.bSeesA);
     const idealComplement = aHit && bHit && (
       (isCai(data.aSeesB) && isGuan(data.bSeesA)) || (isGuan(data.aSeesB) && isCai(data.bSeesA))
@@ -2824,7 +2830,12 @@ function renderMatchView(view){
       const who = aHit ? '第一人看第二人' : '第二人看第一人';
       verdict = `${who}落在财星或官星上，配偶星到位了一半——这段关系里更可能是一方投入感、"被当真"的程度更强，另一方相对没有那么强烈的化学反应，不是对等的双向奔赴，需要多留意这份不对等。`;
     } else {
-      verdict = `双方看对方都没有落在财星或官星上，配偶星没有到位——不代表不能在一起，只是彼此眼中更可能是知己、伙伴或者惺惺相惜的同类人（如果落在比劫），或是带着欣赏和一点距离感的关系（如果落在食伤、印星），感情性质上会跟"非你不可"的强烈感觉不太一样，更偏细水长流。`;
+      const aCat = categorize(data.aSeesB), bCat = categorize(data.bSeesA);
+      if(aCat===bCat){
+        verdict = `双方看对方都没有落在财星或官星上，配偶星没有到位——两人看对方都落在"${aCat}"这一类，${NON_CAIGUAN_TEXT[aCat]}。不代表不能在一起，只是感情性质上会跟"非你不可"的强烈感觉不太一样，更偏细水长流。`;
+      } else {
+        verdict = `双方看对方都没有落在财星或官星上，配偶星没有到位——第一人眼中第二人落在"${aCat}"（${NON_CAIGUAN_TEXT[aCat]}），第二人眼中第一人落在"${bCat}"（${NON_CAIGUAN_TEXT[bCat]}），两人对这段关系的感受方式不完全对称，值得留意这份不对等是不是也体现在实际相处的重心上。不代表不能在一起，只是感情性质上会跟"非你不可"的强烈感觉不太一样，更偏细水长流。`;
+      }
     }
     parts.push(`<div class="health-item"><div class="health-h">互看十神</div><div class="health-p">对第一人来说，第二人的日主是${data.aSeesB}——${MUTUAL_SHISHEN_TEXT[data.aSeesB]}反过来，对第二人来说，第一人的日主是${data.bSeesA}——${MUTUAL_SHISHEN_TEXT[data.bSeesA]}${verdict}</div></div>`);
   } else if(view==='friend'){
