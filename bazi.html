@@ -123,6 +123,40 @@
   .al-personal .al-p-empty{font-size:12px;color:var(--text-dim);line-height:1.7;}
   .al-personal .chonghe-item{color:var(--text-pale);}
   .al-personal .chonghe-item b{color:var(--brass);}
+
+  .match-input-block{margin-bottom:16px;}
+  .match-person-label{
+    display:block;font-size:12px;color:var(--brass);
+    letter-spacing:.06em;margin-bottom:7px;font-weight:500;
+  }
+  .match-view-tabs{
+    display:flex;gap:8px;margin:16px 0 14px;
+  }
+  .match-tab{
+    flex:1;padding:9px 0;border-radius:3px;
+    background:#0e1017;border:1px solid rgba(176,141,79,.3);
+    color:var(--text-dim);font-size:13px;font-weight:600;
+    cursor:pointer;font-family:"Noto Sans SC",sans-serif;
+  }
+  .match-tab.active{
+    background:rgba(176,141,79,.25);border-color:var(--brass);color:#e8dfc8;
+  }
+  .match-headline{
+    text-align:center;padding:14px 0;margin-bottom:14px;
+    border-bottom:1px solid rgba(176,141,79,.25);
+  }
+  .match-headline .mh-pair{
+    display:flex;justify-content:center;gap:18px;
+    font-family:"Noto Serif SC",serif;font-size:15px;color:#f2ede0;
+  }
+  .match-headline .mh-pair .mh-vs{color:var(--vermillion-dim);font-size:12px;align-self:center;}
+  .match-score{
+    text-align:center;margin-bottom:14px;
+  }
+  .match-score .ms-num{
+    font-family:"Noto Serif SC",serif;font-weight:900;font-size:32px;color:var(--vermillion);
+  }
+  .match-score .ms-label{font-size:11px;color:var(--text-dim);margin-top:2px;}
   label{
     display:block;font-size:12px;color:var(--brass);
     letter-spacing:.06em;margin-bottom:7px;font-weight:500;
@@ -699,6 +733,38 @@
 
     <div class="footnote">
       <b>说明：</b>年柱、月柱以“立春”“节”交接为界（非农历正月初一），符合传统命理排法；节气时刻按天文算法实时计算，精度约在分钟级——若生辰恰好落在交节前后十几分钟内，建议核对准确交节时刻。日柱按公历连续干支推算；子时固定以23:00为日界，23:00-23:59 出生按次日的日柱、时柱起算。十神以日干（日主）为基准，分别标注年干、月干、时干，以及四柱地支中所藏天干（本气/中气/余气）；日柱本身标"日主"，不参与自比。旺衰用神采用简化扶抑法（月令加权+通根计分），命理界另有调候、病药等不同流派算法，结果仅供参考。大运起运时间按传统"三天折一岁"口诀、结合精确节气时刻换算；顺排逆排按年干阴阳与性别判定；流年干支按公历年份直接推算。每步大运的冲/合仅对照命盘四支做基础判断，未纳入更复杂的三合、三会等关系。
+    </div>
+  </div>
+
+  <div class="card" id="matchCard">
+    <div class="section-title" style="margin-bottom:12px;">双人合盘</div>
+    <div class="match-input-block">
+      <label class="match-person-label">第一人</label>
+      <div class="ymd">
+        <select id="mA_Y"></select><select id="mA_M"></select><select id="mA_D"></select>
+      </div>
+      <div class="ymd" style="margin-top:8px;">
+        <select id="mA_H"></select><select id="mA_Min"></select>
+      </div>
+    </div>
+    <div class="match-input-block">
+      <label class="match-person-label">第二人</label>
+      <div class="ymd">
+        <select id="mB_Y"></select><select id="mB_M"></select><select id="mB_D"></select>
+      </div>
+      <div class="ymd" style="margin-top:8px;">
+        <select id="mB_H"></select><select id="mB_Min"></select>
+      </div>
+    </div>
+    <button class="go" id="matchGoBtn" style="margin-top:4px;">开始比对</button>
+
+    <div id="matchResult" style="display:none;">
+      <div class="match-view-tabs" id="matchViewTabs">
+        <button type="button" class="match-tab active" data-view="romance">姻缘</button>
+        <button type="button" class="match-tab" data-view="friend">交友</button>
+        <button type="button" class="match-tab" data-view="partner">合伙</button>
+      </div>
+      <div id="matchBody"></div>
     </div>
   </div>
 
@@ -2589,6 +2655,196 @@ document.getElementById('alGoBtn').onclick = function(){
   document.getElementById('almanacResult').style.display = 'block';
 };
 document.getElementById('alGoBtn').click(); // 打开页面直接显示今天的结果
+
+/* ============================================================
+   双人合盘：姻缘 / 交友 / 合伙 三个视角共用同一份比对数据
+   ============================================================ */
+const mA_Y=document.getElementById('mA_Y'), mA_M=document.getElementById('mA_M'), mA_D=document.getElementById('mA_D'),
+      mA_H=document.getElementById('mA_H'), mA_Min=document.getElementById('mA_Min');
+const mB_Y=document.getElementById('mB_Y'), mB_M=document.getElementById('mB_M'), mB_D=document.getElementById('mB_D'),
+      mB_H=document.getElementById('mB_H'), mB_Min=document.getElementById('mB_Min');
+fillSelect(mA_Y, 1900, 2050, y=>y+'年'); fillSelect(mA_M, 1, 12, m=>m+'月');
+fillSelect(mA_H, 0, 23, h=>String(h).padStart(2,'0')+'时'); fillSelect(mA_Min, 0, 59, m=>String(m).padStart(2,'0')+'分');
+fillSelect(mB_Y, 1900, 2050, y=>y+'年'); fillSelect(mB_M, 1, 12, m=>m+'月');
+fillSelect(mB_H, 0, 23, h=>String(h).padStart(2,'0')+'时'); fillSelect(mB_Min, 0, 59, m=>String(m).padStart(2,'0')+'分');
+function refreshMDays(selYEl, selMEl, selDEl){
+  const y=Number(selYEl.value), m=Number(selMEl.value);
+  const prevD = Number(selDEl.value)||1;
+  const dim = daysInMonth(y,m);
+  fillSelect(selDEl, 1, dim, d=>d+'日');
+  selDEl.value = Math.min(prevD, dim);
+}
+mA_Y.onchange = ()=>refreshMDays(mA_Y,mA_M,mA_D); mA_M.onchange = ()=>refreshMDays(mA_Y,mA_M,mA_D);
+mB_Y.onchange = ()=>refreshMDays(mB_Y,mB_M,mB_D); mB_M.onchange = ()=>refreshMDays(mB_Y,mB_M,mB_D);
+mA_Y.value=1990; mA_M.value=1; refreshMDays(mA_Y,mA_M,mA_D); mA_D.value=1; mA_H.value=12; mA_Min.value=0;
+mB_Y.value=1990; mB_M.value=1; refreshMDays(mB_Y,mB_M,mB_D); mB_D.value=1; mB_H.value=12; mB_Min.value=0;
+
+const GAN_HE_ELEM = ['土','金','水','木','火']; // 甲己合土 乙庚合金 丙辛合水 丁壬合木 戊癸合火
+function ganHeInfo(ganA, ganB){
+  const lo=Math.min(ganA,ganB), hi=Math.max(ganA,ganB);
+  if(hi-lo===5) return {combines:true, elem:GAN_HE_ELEM[lo]};
+  return {combines:false};
+}
+function compareBranches(rA, rB){
+  const posA = [['年支',rA.year.zhi],['月支',rA.month.zhi],['日支',rA.day.zhi],['时支',rA.hour.zhi]];
+  const posB = [['年支',rB.year.zhi],['月支',rB.month.zhi],['日支',rB.day.zhi],['时支',rB.hour.zhi]];
+  const results = [];
+  posA.forEach(([la,za])=>{
+    posB.forEach(([lb,zb])=>{
+      let relation=null;
+      if(isChong(za,zb)) relation='冲';
+      else if(isLiuHe(za,zb)) relation='合';
+      else if(isXing(za,zb)) relation='刑';
+      if(relation) results.push({posA:la, posB:lb, relation, zhi:za});
+    });
+  });
+  return results;
+}
+function computeElemComplement(aScores, bScores){
+  const avgA = aScores.reduce((s,v)=>s+v,0)/5;
+  const avgB = bScores.reduce((s,v)=>s+v,0)/5;
+  const bHelpsA=[], aHelpsB=[];
+  for(let i=0;i<5;i++){
+    const ra = avgA>0?aScores[i]/avgA:0, rb = avgB>0?bScores[i]/avgB:0;
+    if(ra<=0.6 && rb>=1.2) bHelpsA.push(i);
+    if(rb<=0.6 && ra>=1.2) aHelpsB.push(i);
+  }
+  return {bHelpsA, aHelpsB};
+}
+function seesOtherDist(myDayGan, otherR){
+  const stems=[otherR.year.gan, otherR.month.gan, otherR.day.gan, otherR.hour.gan];
+  const dist={};
+  stems.forEach(g=>{ const sg=tenGodOf(myDayGan,g); dist[sg]=(dist[sg]||0)+1; });
+  return dist;
+}
+const MUTUAL_SHISHEN_TEXT = {
+  '正财':'对方在你眼里，容易被看作稳定可靠的存在，你会重视对方务实顾家的一面，也容易把对方当成生活上可以依靠的人。',
+  '偏财':'对方在你眼里，容易被看作带来惊喜和资源的人，你容易被对方的活络、人脉和机会吸引。',
+  '正官':'对方在你眼里，代表着规矩和分寸，你容易认可对方的稳重和责任感，相处中也会不自觉多一分克制和尊重。',
+  '七杀':'对方在你眼里，是带着压力和挑战的存在，你容易被对方的魄力震住，相处中张力会比较明显，但也容易被吸引。',
+  '正印':'对方在你眼里，像长辈一样让你安心，你容易依赖对方的包容和照顾，愿意听对方的意见。',
+  '偏印':'对方在你眼里，带着一点神秘和独特的气质，你可能觉得不容易完全看透对方，但也因此更有探索的兴趣。',
+  '食神':'对方在你眼里，是让人放松愉快的存在，你跟对方相处起来舒服、有情趣，不会觉得有压力。',
+  '伤官':'对方在你眼里，才华外露、有个性，你容易被对方的锋芒吸引，相处中也可能感受到一些被比下去的压力。',
+  '比肩':'对方在你眼里，像是同类人，你们容易有共鸣、聊得来，但也可能在某些事情、资源上互相较劲。',
+  '劫财':'对方在你眼里，是有冲劲、敢闯的人，你会欣赏对方的行动力，但相处中也要留意钱财或资源上的拉扯。'
+};
+function computeMatch(rA, rB){
+  const heInfo = ganHeInfo(rA.day.gan, rB.day.gan);
+  const branchRel = compareBranches(rA, rB);
+  const dayRel = branchRel.filter(x=>x.posA==='日支' && x.posB==='日支');
+  const yearRel = branchRel.filter(x=>x.posA==='年支' && x.posB==='年支');
+  const otherRel = branchRel.filter(x=>!(x.posA==='日支'&&x.posB==='日支') && !(x.posA==='年支'&&x.posB==='年支'));
+  const aScores = analyzeStrength(rA).elemScore;
+  const bScores = analyzeStrength(rB).elemScore;
+  const elemComp = computeElemComplement(aScores, bScores);
+  const aSeesB = tenGodOf(rA.day.gan, rB.day.gan);
+  const bSeesA = tenGodOf(rB.day.gan, rA.day.gan);
+  const aSeesBDist = seesOtherDist(rA.day.gan, rB);
+  const bSeesADist = seesOtherDist(rB.day.gan, rA);
+  return {heInfo, dayRel, yearRel, otherRel, elemComp, aSeesB, bSeesA, aSeesBDist, bSeesADist};
+}
+
+let lastMatch = null;
+function renderMatchView(view){
+  if(!lastMatch) return;
+  const {data} = lastMatch;
+  const body = document.getElementById('matchBody');
+  const parts = [];
+
+  // 日主合——三个视角都会提，但措辞不同
+  if(data.heInfo.combines){
+    const t = view==='romance' ? '两人日主天干相合，传统上认为这是缘分深的标志之一，容易一见如故、彼此吸引，相处起来有种"命中注定"的感觉。'
+      : view==='friend' ? '两人日主天干相合，脾气秉性上容易合拍，聊得来、玩得到一块，是那种一拍即合的朋友缘分。'
+      : '两人日主天干相合，合作起来容易一拍即合、想法对得上，沟通成本相对低，是搭档关系里比较难得的默契基础。';
+    parts.push(`<div class="health-item"><div class="health-h">日主相合（合化${data.heInfo.elem}）</div><div class="health-p">${t}</div></div>`);
+  } else {
+    parts.push(`<div class="health-item"><div class="health-h">日主不合</div><div class="health-p">两人日主天干没有相合关系，不算加分项，但也不是减分项——大多数人组合本就如此，具体合不合得来还是要看后面的冲合、十神这些更细的层面。</div></div>`);
+  }
+
+  // 日支关系——姻缘视角重点讲，交友合伙简单带过
+  if(data.dayRel.length){
+    const rel = data.dayRel[0].relation;
+    let t;
+    if(rel==='合') t = view==='romance' ? '两人日支相合，日支是夫妻宫，这是合婚里分量很重的一个吉兆，代表两人在生活层面容易磨合得来，居家过日子这类具体的事情上不容易起大冲突。' : '两人日支相合，代表两人在具体相处的日常细节上容易磨合、不容易起摩擦。';
+    else if(rel==='冲') t = view==='romance' ? '两人日支相冲，日支是夫妻宫，这一条传统上会被认为需要多留意——不代表不能在一起，但相处中容易在生活习惯、具体琐事上产生摩擦，需要更多耐心磨合。' : '两人日支相冲，代表两人在具体相处的日常细节上容易有摩擦，需要多一点耐心磨合。';
+    else t = view==='romance' ? '两人日支相刑，日支是夫妻宫，相处中容易有一种说不清道不明的别扭感，反复出现类似的小摩擦，需要多一点自我觉察，别陷入重复的争执模式。' : '两人日支相刑，相处中容易有反复出现的小摩擦，需要多一点耐心。';
+    parts.push(`<div class="health-item"><div class="health-h">日支${rel}（夫妻宫）</div><div class="health-p">${t}</div></div>`);
+  }
+
+  // 年支/生肖——交友视角重点讲
+  if(data.yearRel.length){
+    const rel = data.yearRel[0].relation;
+    const t = rel==='合' ? '两人生肖相合，这是最粗浅也最多人关心的一层缘分，传统上认为生肖相合的人天生比较投缘、容易相处。'
+      : rel==='冲' ? '两人生肖相冲，是比较容易被长辈提起的一条——不必太紧张，生肖冲只是很粗浅的一层参考，比它更细致、更值得看的是上面日支和下面十神这些层面。'
+      : '两人生肖相刑，跟生肖冲类似，是比较粗浅的一层参考，不必过度解读。';
+    parts.push(`<div class="health-item"><div class="health-h">生肖${rel}</div><div class="health-p">${t}</div></div>`);
+  }
+
+  // 其他柱位冲合
+  if(data.otherRel.length){
+    const otherText = data.otherRel.map(x=>`${x.posA}对${x.posB}${x.relation}`).join('、');
+    parts.push(`<div class="health-item"><div class="health-h">其他位置：${otherText}</div><div class="health-p">除了日支和年支，两人四柱之间还有这几处冲合刑关系，力量比日支这条稍弱，但同样是两人互动模式的一种参照，合代表牵绊呼应，冲刑代表容易有摩擦变动。</div></div>`);
+  }
+
+  // 五行互补
+  const {bHelpsA, aHelpsB} = data.elemComp;
+  if(bHelpsA.length || aHelpsB.length){
+    const parts2 = [];
+    if(bHelpsA.length) parts2.push(`第二人身上${bHelpsA.map(i=>ELEM_NAMES5[i]).join('、')}这方面的力量，正好能补上第一人命盘里偏弱的部分`);
+    if(aHelpsB.length) parts2.push(`第一人身上${aHelpsB.map(i=>ELEM_NAMES5[i]).join('、')}这方面的力量，正好能补上第二人命盘里偏弱的部分`);
+    const t = view==='partner'
+      ? `${parts2.join('；')}——放在合作关系里看，这是很实际的互补：一个人擅长的地方，正好是另一个人的短板，分工上容易形成"1+1>2"的效果，而不是重复内耗。`
+      : view==='romance'
+      ? `${parts2.join('；')}——传统上认为这种五行互补是两人在一起后"互相滋养"的体现，各自原本欠缺的部分，因为对方的存在而被补足。`
+      : `${parts2.join('；')}——两人凑在一起，各自欠缺的部分正好被对方补上，是那种"在一起状态更完整"的朋友组合。`;
+    parts.push(`<div class="health-item"><div class="health-h">五行互补</div><div class="health-p">${t}</div></div>`);
+  } else {
+    parts.push(`<div class="health-item"><div class="health-h">五行互补</div><div class="health-p">两人命盘五行上没有明显的"谁补谁"的关系，各自相对独立，不算减分，只是这层互补关系不算突出。</div></div>`);
+  }
+
+  // 互看十神——三个视角权重不同
+  const aBiJieRatio = ((data.aSeesBDist['比肩']||0)+(data.aSeesBDist['劫财']||0));
+  const aCaiRatio = ((data.aSeesBDist['正财']||0)+(data.aSeesBDist['偏财']||0));
+  const aGuanRatio = ((data.aSeesBDist['正官']||0)+(data.aSeesBDist['七杀']||0));
+  if(view==='romance'){
+    parts.push(`<div class="health-item"><div class="health-h">互看十神</div><div class="health-p">对第一人来说，第二人的日主是${data.aSeesB}——${MUTUAL_SHISHEN_TEXT[data.aSeesB]}反过来，对第二人来说，第一人的日主是${data.bSeesA}——${MUTUAL_SHISHEN_TEXT[data.bSeesA]}姻缘关系里，如果双方看对方都能落在财星或官星（对方是自己的财/官），传统上认为这是配偶星到位的吉兆；如果落在比劫，则更像是"合作伙伴"型的关系，需要多培养一点浪漫和依赖感。</div></div>`);
+  } else if(view==='friend'){
+    parts.push(`<div class="health-item"><div class="health-h">互看十神</div><div class="health-p">对第一人来说，第二人的日主是${data.aSeesB}；对第二人来说，第一人的日主是${data.bSeesA}。交友关系里，比肩劫财最能代表"意气相投"——第一人眼中第二人的比劫类特质占比${aBiJieRatio}/4，这个比例越高，两人相处越像"同类人"，容易一拍即合，但也要留意别在小事上争强好胜。</div></div>`);
+  } else {
+    parts.push(`<div class="health-item"><div class="health-h">互看十神</div><div class="health-p">对第一人来说，第二人的日主是${data.aSeesB}；对第二人来说，第一人的日主是${data.bSeesA}。合伙关系里最值得留意的是财官这条线——第一人眼中第二人的财星占比${aCaiRatio}/4、官星（含七杀）占比${aGuanRatio}/4：财星占比高，代表对方容易给这段合作带来实际的资源和收益；官星占比高，代表对方在合作中容易居于主导、约束的一方，两人最好提前商量清楚谁主导决策，避免后续因为话语权产生矛盾。</div></div>`);
+  }
+
+  const viewNote = view==='romance' ? '姻缘视角侧重日支夫妻宫和配偶星（财官）是否到位，是三个视角里传统命理讲得最完整、最有专门依据的一块。'
+    : view==='friend' ? '交友视角侧重生肖和比肩劫财这类"同类感"的指标，是这套比对工具的一种合理延伸，不是命理古籍里有专门章节的独立系统。'
+    : '合伙视角侧重五行互补和财官归属，同样是延伸应用，重点在于看清楚两人在合作关系里各自适合扮演什么角色。';
+  body.innerHTML = parts.join('') + `<div class="modal-caveat" style="margin-top:8px;padding-top:8px;">${viewNote}这套比对工具背后是同一份数据，三个视角只是解读侧重不同，不是三套互相独立的秘法；具体关系走向还有大量现实因素（沟通方式、共同经历、双方意愿）在起作用，命盘比对仅供参考，不是决定性的判断。</div>`;
+}
+
+document.getElementById('matchGoBtn').onclick = function(){
+  const rA = computeBazi(Number(mA_Y.value), Number(mA_M.value), Number(mA_D.value), Number(mA_H.value), Number(mA_Min.value));
+  const rB = computeBazi(Number(mB_Y.value), Number(mB_M.value), Number(mB_D.value), Number(mB_H.value), Number(mB_Min.value));
+  const data = computeMatch(rA, rB);
+  lastMatch = {rA, rB, data};
+
+  document.getElementById('matchBody').parentElement.querySelector('.match-headline')?.remove();
+  const headline = document.createElement('div');
+  headline.className = 'match-headline';
+  headline.innerHTML = `<div class="mh-pair"><span>${GAN[rA.day.gan]}${ZHI[rA.day.zhi]}</span><span class="mh-vs">与</span><span>${GAN[rB.day.gan]}${ZHI[rB.day.zhi]}</span></div>`;
+  document.getElementById('matchResult').insertBefore(headline, document.getElementById('matchViewTabs'));
+
+  document.querySelectorAll('.match-tab').forEach(t=>t.classList.remove('active'));
+  document.querySelector('.match-tab[data-view="romance"]').classList.add('active');
+  renderMatchView('romance');
+  document.getElementById('matchResult').style.display = 'block';
+};
+document.querySelectorAll('.match-tab').forEach(tab=>{
+  tab.onclick = function(){
+    document.querySelectorAll('.match-tab').forEach(t=>t.classList.remove('active'));
+    this.classList.add('active');
+    renderMatchView(this.dataset.view);
+  };
+});
 
 function updateShichenHint(){
   const h = Number(selH.value);
