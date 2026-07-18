@@ -240,6 +240,15 @@
   .guiren-row .gr-result{color:var(--text-dim);}
   .guiren-row .gr-result.gr-has{color:var(--brass-dim);font-weight:600;}
   .guiren-row .gr-result.gr-warn{color:var(--vermillion-dim);font-weight:600;}
+  .health-item{
+    padding:12px 0;border-bottom:1px solid rgba(176,141,79,.12);
+  }
+  .health-item:last-child{border-bottom:none;}
+  .health-item .health-h{
+    font-size:12.5px;font-weight:700;color:var(--brass-dim);margin-bottom:6px;
+  }
+  .health-item.health-warn .health-h{color:var(--vermillion-dim);}
+  .health-item .health-p{font-size:12px;color:var(--text-pale);line-height:1.7;}
   .minggong-line{
     position:relative;text-align:center;
     margin-top:14px;padding-top:12px;
@@ -649,6 +658,11 @@
     <div class="section-card" id="strengthCard">
       <div class="section-title">旺衰与用神</div>
       <div id="strengthBody"></div>
+    </div>
+
+    <div class="section-card" id="healthCard">
+      <div class="section-title">五行健康提示</div>
+      <div id="healthBody"></div>
     </div>
 
     <div class="section-card" id="guirenCard">
@@ -2878,6 +2892,64 @@ function renderStrength(r, a){
   if(link){ link.onclick = ()=> openYongModal(link.dataset.elem); }
 }
 
+/* ============================================================
+   五行健康提示：复用旺衰分析里已经算好的elemScore，
+   找出明显偏旺/偏弱的五行，对应中医脏腑给提示
+   ============================================================ */
+const WUXING_ORGAN = ['肝胆','心与小肠','脾胃','肺与大肠','肾与膀胱'];
+const WUXING_HEALTH_TEXT = {
+  strong: [
+    '木气偏旺，五行对应肝胆——传统上认为容易情绪比较急躁、易怒，肝火偏旺的人也容易有头痛、眼睛干涩、口苦这类表现，平时要留意情绪疏导、少熬夜，肝喜疏泄，压抑久了容易表现在身体上。',
+    '火气偏旺，五行对应心与小肠——传统上认为心火偏旺的人容易心烦、失眠、口舌生疮，情绪上也容易急躁冲动，平时要留意静心、规律作息，少吃辛辣燥热的东西。',
+    '土气偏旺，五行对应脾胃——传统上认为容易思虑过重、脾胃壅滞，容易腹胀、消化偏慢，平时要留意别想太多、饮食别太油腻厚重。',
+    '金气偏旺，五行对应肺与大肠——传统上认为容易呼吸道敏感、皮肤偏干燥，性格上也容易偏刚硬、不容易变通，平时要留意呼吸道保养，多喝水润燥。',
+    '水气偏旺，五行对应肾与膀胱——传统上认为容易水湿偏重、身体容易水肿，情绪上也可能偏优柔寡断，平时要留意别太贪凉，适度运动帮助代谢。'
+  ],
+  weak: [
+    '木气偏弱，五行对应肝胆——传统上认为肝血相对不足的人，容易疲劳、眼睛干涩、指甲容易脆裂，情绪上也容易有点郁闷、提不起劲，平时可以多留意休息和情绪的舒展。',
+    '火气偏弱，五行对应心与小肠——传统上认为心阳不足的人容易怕冷、精神不振、心悸气短，平时要留意保暖和适度的运动，让身体的阳气升起来。',
+    '土气偏弱，五行对应脾胃——传统上认为脾胃功能偏弱的人，容易食欲不振、消化吸收差、容易疲倦乏力，平时要留意饮食规律，别吃太多生冷寒凉的食物。',
+    '金气偏弱，五行对应肺与大肠——传统上认为肺气不足的人容易气短、容易感冒，皮肤和肠道都偏敏感，平时要留意保暖、适度锻炼增强肺活量。',
+    '水气偏弱，五行对应肾与膀胱——传统上认为肾气不足的人容易腰膝酸软、精神容易疲惫、耳鸣，平时要留意早睡、别过度劳累，肾是先天之本，最忌讳透支。'
+  ]
+};
+function computeWuxingHealth(a){
+  const scores = a.elemScore;
+  const total = scores.reduce((s,v)=>s+v,0);
+  const avg = total/5;
+  const items = scores.map((v,i)=>({elem:i, score:v, ratio: avg>0 ? v/avg : 0}));
+  const strong = items.filter(it=>it.ratio>=1.4).sort((x,y)=>y.ratio-x.ratio);
+  const weak = items.filter(it=>it.ratio<=0.6).sort((x,y)=>x.ratio-y.ratio);
+  const specialWarnings = [];
+  strong.forEach(s=>{
+    const targetElem = (s.elem+2)%5; // s.elem 克 targetElem
+    const w = weak.find(x=>x.elem===targetElem);
+    if(w) specialWarnings.push({from:s.elem, to:targetElem});
+  });
+  return {strong, weak, specialWarnings};
+}
+function renderHealth(a){
+  const hw = computeWuxingHealth(a);
+  const body = document.getElementById('healthBody');
+  const parts = [];
+  hw.strong.forEach(s=>{
+    parts.push(`<div class="health-item"><div class="health-h">${ELEM_NAMES5[s.elem]}偏旺 · ${WUXING_ORGAN[s.elem]}</div><div class="health-p">${WUXING_HEALTH_TEXT.strong[s.elem]}</div></div>`);
+  });
+  hw.weak.forEach(w=>{
+    parts.push(`<div class="health-item"><div class="health-h">${ELEM_NAMES5[w.elem]}偏弱 · ${WUXING_ORGAN[w.elem]}</div><div class="health-p">${WUXING_HEALTH_TEXT.weak[w.elem]}</div></div>`);
+  });
+  if(hw.specialWarnings.length){
+    hw.specialWarnings.forEach(sw=>{
+      parts.push(`<div class="health-item health-warn"><div class="health-h">${ELEM_NAMES5[sw.from]}旺克${ELEM_NAMES5[sw.to]}，需要格外留意</div><div class="health-p">${ELEM_NAMES5[sw.from]}偏旺、又直接克制本来就偏弱的${ELEM_NAMES5[sw.to]}，这种"旺者更旺、弱者更弱"的组合，传统上认为对应的${WUXING_ORGAN[sw.to]}这块，比单独偏旺或偏弱时更值得多一分留意和保养。</div></div>`);
+    });
+  }
+  if(parts.length===0){
+    body.innerHTML = `<div class="health-item"><div class="health-p">这张命盘五行相对均衡，没有特别突出偏旺或偏弱的一行——从这套判断逻辑来看，是健康层面比较理想的状态，日常按一般养生原则作息即可。</div></div>`;
+  } else {
+    body.innerHTML = parts.join('') + `<div class="modal-caveat" style="margin-top:8px;padding-top:8px;">这套提示是把命理里的五行旺衰，对照中医"五行对应脏腑"的传统说法做的推演，不是医学诊断，身体有具体不适还是要以正规医疗检查和医生诊断为准，这里仅供日常养生参考。</div>`;
+  }
+}
+
 const PALACE_MEANING = {
   '年':'祖辈/父母/早年根基',
   '月':'事业/人际/青年',
@@ -3059,6 +3131,7 @@ document.getElementById('goBtn').onclick = function(){
 
   const a = analyzeStrength(r);
   renderStrength(r, a);
+  renderHealth(a);
 
   // 按周岁（生日是否已过）算出当前年龄，用于判断人生阶段的时态
   const today = new Date();
