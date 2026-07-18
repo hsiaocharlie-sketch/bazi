@@ -458,6 +458,11 @@
     width:5px;height:5px;border-radius:50%;
     background:var(--vermillion);
   }
+  .ln-item.has-romance::before{
+    content:"";position:absolute;top:3px;left:3px;
+    width:5px;height:5px;border-radius:50%;
+    background:var(--brass);
+  }
   .ln-year{font-size:9px;color:var(--text-dim);}
   .ln-gz{font-family:"Noto Serif SC",serif;font-size:13px;color:#f2ede0;margin:2px 0;}
   .ln-tag{font-size:8.5px;padding:1px 3px;border-radius:6px;display:inline-block;}
@@ -1395,7 +1400,7 @@ function ageToFlowingBracket(age){
   return '中老年';
 }
 
-function openShishenModal(sg, xj, age, contextLabel, facts, notes){
+function openShishenModal(sg, xj, age, contextLabel, facts, notes, romanceHits){
   const bracket = ageToFlowingBracket(age);
   const generalText = annotateText(getFlowingShishenText(bracket, sg, xj), facts);
   const familyTextRaw = getFlowingFamilyText(bracket, sg, xj);
@@ -1403,10 +1408,14 @@ function openShishenModal(sg, xj, age, contextLabel, facts, notes){
   const notesHtml = (notes && notes.length)
     ? `<div class="modal-sec"><div class="modal-h">冲合提示</div>${notes.map(richNoteHtml).join('')}</div>`
     : '';
+  const romanceHtml = (romanceHits && romanceHits.length)
+    ? `<div class="modal-sec"><div class="modal-h">姻缘星提示</div><div class="modal-p">这一年的地支恰好碰上了你命盘自己的${romanceHits.join('、')}——传统上判断"什么时候容易有姻缘"，很重要的一个手法就是看流年会不会撞上这几颗星。这一年相对更容易出现恋爱、订婚、结婚这类跟感情相关的机缘，单身的人尤其可以多留意，已婚的人也可能这一年感情生活更活跃、家里添丁的概率也会高一些。</div></div>`
+    : '';
   document.getElementById('modalTitle').textContent = `${sg}（${xj}）`;
   document.getElementById('modalBody').innerHTML = `
     <div class="modal-sec"><div class="modal-h">${contextLabel} · 约${age}岁 · ${bracket} · 整体运势</div><div class="modal-p">${generalText}</div></div>
     ${familyText ? `<div class="modal-sec"><div class="modal-h">婚姻家庭</div><div class="modal-p">${familyText}</div></div>` : ''}
+    ${romanceHtml}
     ${notesHtml}
     <div class="modal-caveat">喜/忌是相对这份命盘"旺衰"判断而言的：喜神代表这段时间相对顺、容易借上力；忌神代表这段时间消耗压力更明显，需要多留意调整，不是绝对的吉凶断言。年龄分段是粗略近似，仅供参考。</div>
   `;
@@ -2945,6 +2954,18 @@ function renderDaYun(r, a, dayun, facts){
   const container = document.getElementById('dayunBody');
   container.innerHTML = '';
 
+  // 这个人自己的桃花/红鸾/天喜地支，用来判断流年是否撞上——是判断"什么时候容易有姻缘"的常用手法
+  const ownGroup = SHENSHA_GROUPS.find(g=>g.members.includes(r.year.zhi));
+  const ownTaohuaZhi = ownGroup ? ownGroup.taohua : null;
+  const ownHT = computeHongluanTianxi(r);
+  function romanceCheck(zhi){
+    const hits = [];
+    if(zhi===ownTaohuaZhi) hits.push('桃花');
+    if(zhi===ownHT.hongluanZhi) hits.push('红鸾');
+    if(zhi===ownHT.tianxiZhi) hits.push('天喜');
+    return hits;
+  }
+
   const header = document.createElement('div');
   header.className='dayun-header';
   header.innerHTML = `${dayun.forward?'顺排':'逆排'} · 起运 <b>${dayun.qiyunYears}岁${dayun.qiyunMonths}个月${dayun.qiyunDays}天</b>（约${dayun.startYear}年）`;
@@ -2981,12 +3002,13 @@ function renderDaYun(r, a, dayun, facts){
       const lxj = SHISHEN_CAMP[lsg]===xiCamp ? '喜' : '忌';
       const lnAge = p.startAgeYears + k;
       const lnNotes = computeChongHeForLiunian(lzhi, r, dayGanIdx, xiCamp, p.zhi);
+      const lnRomance = romanceCheck(lzhi);
       const lnItem = document.createElement('div');
-      lnItem.className='ln-item' + (lnNotes.length ? ' has-note' : '');
+      lnItem.className='ln-item' + (lnNotes.length ? ' has-note' : '') + (lnRomance.length ? ' has-romance' : '');
       lnItem.innerHTML = `<div class="ln-year">${Y}</div><div class="ln-gz">${GAN[lgan]}${ZHI[lzhi]}</div><div class="ln-tag ${lxj==='喜'?'xi':'ji'}">${lsg}·${lxj}</div>`;
       lnItem.onclick = (e)=>{
         e.stopPropagation();
-        openShishenModal(lsg, lxj, lnAge, `流年 ${Y}年`, facts, lnNotes);
+        openShishenModal(lsg, lxj, lnAge, `流年 ${Y}年`, facts, lnNotes, lnRomance);
       };
       panel.appendChild(lnItem);
     }
