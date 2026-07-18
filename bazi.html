@@ -665,6 +665,11 @@
       <div id="healthBody"></div>
     </div>
 
+    <div class="section-card" id="careerCard">
+      <div class="section-title">事业倾向</div>
+      <div id="careerBody"></div>
+    </div>
+
     <div class="section-card" id="guirenCard">
       <div class="section-title">贵人星</div>
       <div id="guirenBody"></div>
@@ -2950,6 +2955,103 @@ function renderHealth(a){
   }
 }
 
+/* ============================================================
+   事业倾向：创业/打工 + 合伙运
+   复用"藏干+权重"这套底层逻辑，只是改成按十神分组求和（不是按五行）
+   ============================================================ */
+function computeShiShenScores(r){
+  const dayGanIdx = r.day.gan;
+  const items = [];
+  items.push({stemIdx:r.year.gan, weight:1.0});
+  items.push({stemIdx:r.month.gan, weight:1.0});
+  items.push({stemIdx:r.hour.gan, weight:1.0});
+  const branches = [
+    {zhi:r.year.zhi, isMonth:false},
+    {zhi:r.month.zhi, isMonth:true},
+    {zhi:r.day.zhi, isMonth:false},
+    {zhi:r.hour.zhi, isMonth:false}
+  ];
+  branches.forEach(b=>{
+    BRANCH_HIDDEN[b.zhi].forEach((stemIdx, idx)=>{
+      let w = idx===0 ? 1.0 : 0.3;
+      if(b.isMonth) w *= 2;
+      items.push({stemIdx, weight:w});
+    });
+  });
+  const scores = {};
+  items.forEach(it=>{
+    const sg = tenGodOf(dayGanIdx, it.stemIdx);
+    scores[sg] = (scores[sg]||0) + it.weight;
+  });
+  return scores;
+}
+function computeCareerDirection(r, a){
+  const s = computeShiShenScores(r);
+  const g = name => s[name]||0;
+  const caiScore = g('正财')+g('偏财');
+  const shaScore = g('七杀');
+  const guanScore = g('正官');
+  const shishangScore = g('食神')+g('伤官');
+  const yinScore = g('正印')+g('偏印');
+  const bijieScore = g('比肩');
+  const jiecaiScore = g('劫财');
+
+  const entrepreneurSignal = caiScore + shaScore*0.8 + shishangScore*0.5;
+  const stableSignal = guanScore + yinScore*0.8;
+
+  let lean, leanReason;
+  const diff = entrepreneurSignal - stableSignal;
+  const scale = Math.max(entrepreneurSignal, stableSignal, 1);
+  if(Math.abs(diff) < scale*0.2){
+    lean = '两可';
+    leanReason = '财杀食伤这条"敢闯"的力量，跟官印这条"求稳"的力量比较接近，没有明显偏向——这类命盘往往创业、打工都能做，更多取决于当下具体的机会、大运走势，以及个人主观意愿，命盘本身没有把路堵死或者硬推向哪一条。';
+  } else if(diff > 0){
+    lean = '偏创业';
+    const reasons = [];
+    if(caiScore>0) reasons.push('财星（正财偏财）有一定力量，代表财源、赚钱的机会本身不缺');
+    if(shaScore>0) reasons.push('七杀有力，代表魄力和承担风险的胆识');
+    if(shishangScore>0) reasons.push('食伤有力，代表才华、创意、动手能力，适合凭本事另立门户');
+    leanReason = `${reasons.join('；')}——这几股力量加起来比官印这条"讲规矩、求稳定"的力量更突出，命盘整体偏向"敢闯"的一面，相对适合自己当老板、经商，或者往自由职业、技术创业这类方向走。`;
+  } else {
+    lean = '偏打工';
+    const reasons = [];
+    if(guanScore>0) reasons.push('官星（正官）有力，代表重规矩、讲秩序，容易在体制内、大机构里被认可');
+    if(yinScore>0) reasons.push('印星有力，代表容易得贵人和上级庇护，喜欢有依靠、按部就班的环境');
+    leanReason = `${reasons.join('；')}——这几股"求稳"的力量比财杀食伤这条"敢闯"的力量更突出，命盘整体偏向稳定路线，相对适合在体制内、大公司或专业领域里稳扎稳打地发展，不代表不能创业，只是创业路上会比"偏创业"的命盘更辛苦一些。`;
+  }
+
+  // 合伙运：比劫（尤其劫财）相对喜忌
+  const xiCamp = a.bangScore>=a.haoScore ? '耗身' : '帮身';
+  const bijieIsXi = xiCamp==='帮身';
+  let partnerText;
+  if(bijieIsXi){
+    partnerText = '比肩劫财这条线，在这张命盘里属于"喜"的一方（帮身），代表同辈、合伙人、同事这类关系，整体是助力大于消耗——适合找靠谱的合伙人一起做事，遇到资源共享、抱团取暖的机会，也更容易借上力。';
+  } else {
+    partnerText = '比肩劫财这条线，在这张命盘里属于"忌"的一方（耗身），代表同辈、合伙人容易分薄你的资源和利益——传统上讲"劫财旺则破财"，合伙做生意要格外谨慎，签合同、分账这类事情最好白纸黑字讲清楚，避免因为讲义气而吃亏。';
+  }
+  if(jiecaiScore > bijieScore*1.5 && jiecaiScore>0){
+    partnerText += '这张命盘里劫财的力量又明显比比肩更突出，"劫夺"的意味更重一些，合伙、借贷这类涉及钱财往来的关系，尤其要多一分警惕。';
+  }
+
+  return {lean, leanReason, partnerText, caiScore, shaScore, guanScore, shishangScore, yinScore, bijieScore, jiecaiScore};
+}
+function renderCareer(r, a){
+  const cd = computeCareerDirection(r, a);
+  const body = document.getElementById('careerBody');
+  const leanColor = cd.lean==='两可' ? '' : (cd.lean==='偏创业' ? 'health-warn' : '');
+  body.innerHTML = `
+    <div class="health-item">
+      <div class="health-h">创业 / 打工倾向：${cd.lean}</div>
+      <div class="health-p">${cd.leanReason}</div>
+    </div>
+    <div class="health-item">
+      <div class="health-h">合伙运</div>
+      <div class="health-p">${cd.partnerText}</div>
+    </div>
+    <div class="modal-caveat" style="margin-top:8px;padding-top:8px;">这里的判断只用了命盘本身财杀食伤跟官印比劫这几股力量的对比，没有叠加大运流年当下具体走到哪一步——同一张命盘，走财旺的大运时更适合放手一搏，走印旺的大运时更适合求稳，实际选择还要结合当下具体在走哪一步大运。</div>
+  `;
+}
+
 const PALACE_MEANING = {
   '年':'祖辈/父母/早年根基',
   '月':'事业/人际/青年',
@@ -3132,6 +3234,7 @@ document.getElementById('goBtn').onclick = function(){
   const a = analyzeStrength(r);
   renderStrength(r, a);
   renderHealth(a);
+  renderCareer(r, a);
 
   // 按周岁（生日是否已过）算出当前年龄，用于判断人生阶段的时态
   const today = new Date();
