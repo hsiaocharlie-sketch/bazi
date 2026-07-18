@@ -2190,6 +2190,24 @@ function openTaohuaModal(items){
   document.getElementById('yongModal').classList.add('show');
 }
 
+// 四正桃花（子午卯酉桃花）：另一路更宽泛的算法，不比对年支/日支三合局，
+// 子午卯酉本身在五行上是"四正"（四败地），只要四柱地支里出现任意一个就算，
+// 是跟"墙内/骑墙/墙外"那套精确算法平行、独立的另一套判断，不做位置细分
+function computeSiZhengTaohua(r){
+  const targets = [0,6,3,9]; // 子午卯酉
+  const branches = [['年支',r.year.zhi],['月支',r.month.zhi],['日支',r.day.zhi],['时支',r.hour.zhi]];
+  return branches.filter(([l,z])=>targets.includes(z)).map(([l,z])=>({label:l, zhi:z}));
+}
+function openSiZhengTaohuaModal(hits){
+  document.getElementById('modalTitle').textContent = '四正桃花（子午卯酉）';
+  const hitText = hits.map(h=>`${h.label}（${ZHI[h.zhi]}）`).join('、');
+  document.getElementById('modalBody').innerHTML = `
+    <div class="modal-sec"><div class="modal-p">这是另一套更宽泛的桃花算法——不比对年支或日支起的三合局，子午卯酉这四个地支在五行上是"四正"（也叫四败地），传统上认为天生自带一点吸引力和异性缘，只要四柱地支里出现任意一个就算，不像上面"墙内/骑墙/墙外"那套需要先定位出唯一一个具体的桃花地支。命中${hitText}，数量越多，这份特质往往也越明显——为人容易有魅力、讨人喜欢、社交场合吃得开，但也可能意味着需要多留意异性缘带来的困扰或分心。</div></div>
+    <div class="modal-caveat">这套算法比较宽泛，只做"有没有、命中几个"的判断，不像上面精确版那样能细分墙内墙外，两套可以一起参考，不冲突。</div>
+  `;
+  document.getElementById('yongModal').classList.add('show');
+}
+
 // 命宫地支本身的象征（生肖/五行/季节气质），跟十神那条线是两个独立维度，
 // 不重复十神信息，专讲这个地支本身带来的性格底色
 const ZHI_SYMBOL_TEXT = {
@@ -3062,6 +3080,7 @@ document.getElementById('goBtn').onclick = function(){
   const shierExtra = computeShierShenShaExtra(r);
   const guChenGuaXiu = computeGuChenGuaXiu(r);
   const kuiGang = computeKuiGang(r);
+  const sizhengTaohua = computeSiZhengTaohua(r);
 
   let rowsHtml = presentGuiren.map(name=>{
     const positions = guiren[name];
@@ -3070,6 +3089,9 @@ document.getElementById('goBtn').onclick = function(){
   if(taohuaWall.length){
     const twText = taohuaWall.map(it=>`${it.label}(${it.type})`).join('、');
     rowsHtml += `<div class="guiren-row" id="taohuaRow"><span class="gr-name">桃花</span><span class="gr-result gr-has">${twText}</span></div>`;
+  }
+  if(sizhengTaohua.length){
+    rowsHtml += `<div class="guiren-row" id="sizhengTaohuaRow"><span class="gr-name">四正桃花</span><span class="gr-result gr-has">${sizhengTaohua.map(h=>h.label).join('、')}</span></div>`;
   }
   tianluoDiwang.forEach(name=>{
     rowsHtml += `<div class="guiren-row tld-row" data-tld="${name}"><span class="gr-name">${name}</span><span class="gr-result gr-warn">命中</span></div>`;
@@ -3121,6 +3143,8 @@ document.getElementById('goBtn').onclick = function(){
   });
   const taohuaRowEl = document.getElementById('taohuaRow');
   if(taohuaRowEl) taohuaRowEl.onclick = ()=> openTaohuaModal(taohuaWall);
+  const sizhengTaohuaRowEl = document.getElementById('sizhengTaohuaRow');
+  if(sizhengTaohuaRowEl) sizhengTaohuaRowEl.onclick = ()=> openSiZhengTaohuaModal(sizhengTaohua);
   guirenBody.querySelectorAll('.tld-row').forEach(el=>{
     el.onclick = ()=> openTianluoDiwangModal(el.dataset.tld, guiren);
   });
