@@ -460,6 +460,10 @@
     border-bottom:1px solid rgba(176,141,79,.2);
   }
   .dayun-header b{color:var(--brass);}
+  .dayun-header .qiyun-click{
+    cursor:pointer;text-decoration:underline;text-decoration-style:dotted;
+    text-underline-offset:2px;
+  }
 
   .dayun-row{
     display:grid;
@@ -2356,6 +2360,52 @@ function daysToQiyunAge(dayDiff){
   return {years, months, days};
 }
 
+// 十二节（不含中气）按bracket顺序：bracket0=寅月起点=立春，以此类推
+const JIE_NAMES = ['立春','惊蛰','清明','立夏','芒种','小暑','立秋','白露','寒露','立冬','大雪','小寒'];
+
+// 儒略日(UT)转回北京时间的公历日期——是toJD_UT的逆运算，用经典Meeus算法
+function jdToBeijingDateTime(jd){
+  const jj = jd + 0.5 + 8/24; // +8/24 把UT转回北京时间，+0.5对齐儒略日从中午起算的惯例
+  const Z = Math.floor(jj);
+  const F = jj - Z;
+  let A;
+  if(Z < 2299161){ A = Z; }
+  else{
+    const alpha = Math.floor((Z-1867216.25)/36524.25);
+    A = Z + 1 + alpha - Math.floor(alpha/4);
+  }
+  const B = A + 1524;
+  const C = Math.floor((B-122.1)/365.25);
+  const D = Math.floor(365.25*C);
+  const E = Math.floor((B-D)/30.6001);
+  const dayWithFrac = B - D - Math.floor(30.6001*E) + F;
+  const month = E<14 ? E-1 : E-13;
+  const year = month>2 ? C-4716 : C-4715;
+  const dayInt = Math.floor(dayWithFrac);
+  const totalSeconds = Math.round((dayWithFrac-dayInt)*86400);
+  const hour = Math.floor(totalSeconds/3600);
+  const minute = Math.floor((totalSeconds%3600)/60);
+  return {year, month, day:dayInt, hour, minute};
+}
+
+function openQiyunModal(dayun, r, isMale, y, m, d, hour, min){
+  const dt = dayun.detail;
+  const jieqiDate = jdToBeijingDateTime(dt.targetJD);
+  const pad2 = n=>String(n).padStart(2,'0');
+  const genderText = isMale ? '男命' : '女命';
+  const yangYinText = dt.yearGanIsYang ? '年干为阳' : '年干为阴';
+  const ruleText = (dt.yearGanIsYang===isMale) ? '阳男或阴女顺排' : '阴男或阳女逆排';
+  document.getElementById('modalTitle').textContent = '起运计算细节';
+  document.getElementById('modalBody').innerHTML = `
+    <div class="modal-sec"><div class="modal-h">第一步：定顺逆</div><div class="modal-p">${genderText}，${yangYinText}——按"阳男阴女顺排、阴男阳女逆排"的规则，${ruleText}，所以这张命盘是${dayun.forward?'顺排':'逆排'}，往${dayun.forward?'后':'前'}找最近的一个节气交接点。</div></div>
+    <div class="modal-sec"><div class="modal-h">第二步：定目标节气</div><div class="modal-p">${dayun.forward?'顺排找出生之后最近的下一个节':'逆排找出生之前最近的上一个节'}——目标是"${dt.jieName}"，用牛顿迭代法精确定位太阳视黄经到达对应度数的时刻，算出来是：<br><b>${jieqiDate.year}年${jieqiDate.month}月${jieqiDate.day}日 ${pad2(jieqiDate.hour)}:${pad2(jieqiDate.minute)}</b>（北京时间）。</div></div>
+    <div class="modal-sec"><div class="modal-h">第三步：算天数差</div><div class="modal-p">出生时刻（${y}年${m}月${d}日 ${pad2(hour)}:${pad2(min)}）到"${dt.jieName}"这个时刻，相差约 <b>${dt.dayDiff.toFixed(4)}天</b>。</div></div>
+    <div class="modal-sec"><div class="modal-h">第四步：换算起运年龄</div><div class="modal-p">按传统口诀"三天折一岁，一天折四个月"换算：${dt.dayDiff.toFixed(4)}天 ÷ 3 × 12个月 = ${(dt.dayDiff/3*12).toFixed(2)}个月，折算下来是 <b>${dayun.qiyunYears}岁${dayun.qiyunMonths}个月${dayun.qiyunDays}天</b>——也就是这个人要到这个年龄，第一步大运才真正开始生效，在这之前命盘本身的十神旺衰仍在起作用，只是还没叠加大运这层。</div></div>
+    <div class="modal-caveat">节气交接时刻按天文算法实时计算，精度在分钟级；如果出生时刻恰好卡在交节前后十几分钟内，建议同时核对权威通书数据，具体原因可以参考我们之前聊过的"简化算法精度上限"那个话题。</div>
+  `;
+  document.getElementById('yongModal').classList.add('show');
+}
+
 // r: computeBazi() 的返回值；y,m,d,hour,min: 出生公历时刻；isMale: 是否男命
 function computeDaYun(r, y, m, d, hour, min, isMale){
   const jdBirth = toJD_UT(y,m,d,hour,min);
@@ -2365,6 +2415,7 @@ function computeDaYun(r, y, m, d, hour, min, isMale){
   const nextDeg = norm360(315 + 30*(r.bracket+1));
   const prevDeg = norm360(315 + 30*r.bracket);
   const targetJD = forward ? findJieqiJD(nextDeg, jdBirth) : findJieqiJD(prevDeg, jdBirth);
+  const jieName = forward ? JIE_NAMES[(r.bracket+1)%12] : JIE_NAMES[r.bracket];
 
   const dayDiff = Math.abs(targetJD - jdBirth);
   const qy = daysToQiyunAge(dayDiff);
@@ -2384,7 +2435,10 @@ function computeDaYun(r, y, m, d, hour, min, isMale){
     });
   }
 
-  return {forward, qiyunYears:qy.years, qiyunMonths:qy.months, qiyunDays:qy.days, startYear:startDate.getUTCFullYear(), periods};
+  return {
+    forward, qiyunYears:qy.years, qiyunMonths:qy.months, qiyunDays:qy.days, startYear:startDate.getUTCFullYear(), periods,
+    detail: {jdBirth, targetJD, dayDiff, jieName, yearGanIsYang, isMale}
+  };
 }
 
 /* ============================================================
@@ -3514,7 +3568,7 @@ function richNoteHtml(item){
   return `<div class="chonghe-item"><b>${item.relation}${item.label}支${ZHI[item.zhi]}</b>（此处本气为${item.sg}·${item.xj}）：${hint}</div>`;
 }
 
-function renderDaYun(r, a, dayun, facts){
+function renderDaYun(r, a, dayun, facts, birthY, birthM, birthD, birthHour, birthMin){
   const dayGanIdx = r.day.gan;
   const xiCamp = a.bangScore >= a.haoScore ? '耗身' : '帮身';
   const container = document.getElementById('dayunBody');
@@ -3534,8 +3588,9 @@ function renderDaYun(r, a, dayun, facts){
 
   const header = document.createElement('div');
   header.className='dayun-header';
-  header.innerHTML = `${dayun.forward?'顺排':'逆排'} · 起运 <b>${dayun.qiyunYears}岁${dayun.qiyunMonths}个月${dayun.qiyunDays}天</b>（约${dayun.startYear}年）`;
+  header.innerHTML = `${dayun.forward?'顺排':'逆排'} · 起运 <b class="qiyun-click">${dayun.qiyunYears}岁${dayun.qiyunMonths}个月${dayun.qiyunDays}天</b>（约${dayun.startYear}年）`;
   container.appendChild(header);
+  header.querySelector('.qiyun-click').onclick = ()=> openQiyunModal(dayun, r, isMale, birthY, birthM, birthD, birthHour, birthMin);
 
   dayun.periods.forEach(p=>{
     const sg = tenGodOf(dayGanIdx, p.gan);
@@ -3794,7 +3849,7 @@ document.getElementById('goBtn').onclick = function(){
   `;
 
   const dayun = computeDaYun(r, y, m, d, hh, mi, isMale);
-  renderDaYun(r, a, dayun, facts);
+  renderDaYun(r, a, dayun, facts, y, m, d, hh, mi);
 
   const pad=n=>String(n).padStart(2,'0');
   const lunar = solarToLunar(y,m,d);
