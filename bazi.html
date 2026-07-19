@@ -1492,7 +1492,7 @@ function ageToFlowingBracket(age){
   return '中老年';
 }
 
-function openShishenModal(sg, xj, age, contextLabel, facts, notes, romanceHits){
+function openShishenModal(sg, xj, age, contextLabel, facts, notes, romanceHits, dayunSplit){
   const bracket = ageToFlowingBracket(age);
   const generalText = annotateText(getFlowingShishenText(bracket, sg, xj), facts);
   const familyTextRaw = getFlowingFamilyText(bracket, sg, xj);
@@ -1503,13 +1503,19 @@ function openShishenModal(sg, xj, age, contextLabel, facts, notes, romanceHits){
   const romanceHtml = (romanceHits && romanceHits.length)
     ? `<div class="modal-sec"><div class="modal-h">姻缘星提示</div><div class="modal-p">这一年的地支恰好碰上了你命盘自己的${romanceHits.join('、')}——传统上判断"什么时候容易有姻缘"，很重要的一个手法就是看流年会不会撞上这几颗星。这一年相对更容易出现恋爱、订婚、结婚这类跟感情相关的机缘，单身的人尤其可以多留意，已婚的人也可能这一年感情生活更活跃、家里添丁的概率也会高一些。</div></div>`
     : '';
+  const generalLabel = dayunSplit ? `前五年（${dayunSplit.startAge}-${dayunSplit.startAge+4}岁）· 天干${sg}·${xj}` : `${contextLabel} · 约${age}岁 · ${bracket} · 整体运势`;
+  const splitHtml = dayunSplit ? `
+    <div class="modal-sec"><div class="modal-h">后五年（${dayunSplit.startAge+5}-${dayunSplit.startAge+9}岁）· 地支本气${dayunSplit.zhiSg}·${dayunSplit.zhiXj}</div>
+    <div class="modal-p">${annotateText(getFlowingShishenText(bracket, dayunSplit.zhiSg, dayunSplit.zhiXj), facts)}</div></div>
+  ` : '';
   document.getElementById('modalTitle').textContent = `${sg}（${xj}）`;
   document.getElementById('modalBody').innerHTML = `
-    <div class="modal-sec"><div class="modal-h">${contextLabel} · 约${age}岁 · ${bracket} · 整体运势</div><div class="modal-p">${generalText}</div></div>
+    <div class="modal-sec"><div class="modal-h">${dayunSplit ? contextLabel : ''}${dayunSplit ? '<br>' : ''}${generalLabel}</div><div class="modal-p">${generalText}</div></div>
+    ${splitHtml}
     ${familyText ? `<div class="modal-sec"><div class="modal-h">婚姻家庭</div><div class="modal-p">${familyText}</div></div>` : ''}
     ${romanceHtml}
     ${notesHtml}
-    <div class="modal-caveat">喜/忌是相对这份命盘"旺衰"判断而言的：喜神代表这段时间相对顺、容易借上力；忌神代表这段时间消耗压力更明显，需要多留意调整，不是绝对的吉凶断言。年龄分段是粗略近似，仅供参考。</div>
+    <div class="modal-caveat">喜/忌是相对这份命盘"旺衰"判断而言的：喜神代表这段时间相对顺、容易借上力；忌神代表这段时间消耗压力更明显，需要多留意调整，不是绝对的吉凶断言。${dayunSplit ? '前五年主要看大运天干的力量，后五年主要看大运地支本气的力量，这是命理里常见的一种细分读法，不代表前五年地支完全不起作用、后五年天干完全消失，只是主次有别。' : '年龄分段是粗略近似，仅供参考。'}</div>
   `;
   document.getElementById('yongModal').classList.add('show');
 }
@@ -3534,6 +3540,9 @@ function renderDaYun(r, a, dayun, facts){
   dayun.periods.forEach(p=>{
     const sg = tenGodOf(dayGanIdx, p.gan);
     const xj = SHISHEN_CAMP[sg]===xiCamp ? '喜' : '忌';
+    const zhiMainStem = BRANCH_HIDDEN[p.zhi][0];
+    const zhiSg = tenGodOf(dayGanIdx, zhiMainStem);
+    const zhiXj = SHISHEN_CAMP[zhiSg]===xiCamp ? '喜' : '忌';
     const notes = computeChongHe(p.zhi, r, dayGanIdx, xiCamp);
     const endAge = p.startAgeYears+9, endYear = p.startYear+9;
     const midAge = p.startAgeYears+5;
@@ -3549,7 +3558,7 @@ function renderDaYun(r, a, dayun, facts){
     const dyTagEl = row.querySelector('.sg-click');
     dyTagEl.onclick = (e)=>{
       e.stopPropagation();
-      openShishenModal(sg, xj, midAge, `大运 ${p.startAgeYears}-${endAge}岁（${p.startYear}-${endYear}）`, facts, notes);
+      openShishenModal(sg, xj, midAge, `大运 ${p.startAgeYears}-${endAge}岁（${p.startYear}-${endYear}）`, facts, notes, null, {startAge:p.startAgeYears, zhiSg, zhiXj});
     };
 
     const panel = document.createElement('div');
