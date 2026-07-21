@@ -150,7 +150,7 @@
         <div class="gender-tab" id="genFemale">女</div>
       </div>
     </div>
-    <button class="go secondary" id="confirmBirthBtn">确认生辰</button>
+    <button class="go" id="confirmBirthBtn">确认</button>
     <div class="confirmed-note" id="birthConfirmedNote"></div>
   </div>
 
@@ -592,10 +592,14 @@ function daysInMonth(y,m){
 const locSel = document.getElementById('birthLoc');
 LOCATION_LIST.forEach(loc=>{
   const opt=document.createElement('option');
-  opt.value = loc.lng;
-  opt.textContent = loc.name;
+  opt.value = loc[1];
+  opt.textContent = loc[0];
   locSel.appendChild(opt);
 });
+const customOpt = document.createElement('option');
+customOpt.value = 'custom';
+customOpt.textContent = '自定义经度…';
+locSel.appendChild(customOpt);
 const customWrap = document.getElementById('customLngWrap');
 locSel.onchange = function(){
   customWrap.style.display = (this.value==='custom') ? 'block' : 'none';
@@ -669,7 +673,7 @@ document.getElementById('confirmBirthBtn').onclick = function(){
   myChart = {r, a, dayGanIdx, xiCamp, isMale};
   document.getElementById('birthConfirmedNote').style.display = 'block';
   document.getElementById('birthConfirmedNote').textContent =
-    `已记录：${GAN[r.day.gan]}${ZHI[r.day.zhi]}日 · ${xiCamp==='帮身'?'身强':'身弱或中和'}倾向`;
+    `${GAN[r.day.gan]}${ZHI[r.day.zhi]}日 · ${xiCamp==='帮身'?'身强':'身弱或中和'}倾向`;
   renderResult(); // 起盘后如果已经查过日期，顺手刷新个人化区块
 };
 
