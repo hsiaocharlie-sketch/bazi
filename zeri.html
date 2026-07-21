@@ -112,6 +112,34 @@
   .p-text{font-size:12.5px;color:var(--text-pale);line-height:1.8;}
   .p-text b{color:var(--brass);}
   .footnote{font-size:10.5px;color:var(--text-dim);line-height:1.7;margin-top:6px;}
+  .r-date .clickable, .r-name.clickable, .hhd-name.clickable{
+    cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:3px;
+  }
+  .cs-note{font-size:11.5px;color:var(--text-dim);line-height:1.7;margin-top:10px;padding-top:10px;border-top:1px solid rgba(176,141,79,.12);}
+  .modal-overlay{
+    position:fixed;inset:0;background:rgba(0,0,0,.65);
+    display:none;align-items:center;justify-content:center;
+    z-index:1000;padding:20px;
+  }
+  .modal-overlay.show{display:flex;}
+  .modal-box{
+    background:var(--ink-2);border:1px solid rgba(176,141,79,.4);
+    border-radius:6px;max-width:420px;width:100%;max-height:78vh;
+    overflow-y:auto;padding:20px;position:relative;
+  }
+  .modal-title{
+    font-family:"Noto Serif SC",serif;font-weight:700;font-size:16px;
+    color:#f2ede0;margin-bottom:12px;padding-bottom:10px;padding-right:24px;
+    border-bottom:1px solid rgba(176,141,79,.25);
+  }
+  .modal-body{font-size:13px;color:var(--text-pale);line-height:1.85;}
+  .modal-body p{margin:0 0 10px;}
+  .modal-body p:last-child{margin-bottom:0;}
+  .modal-close{
+    position:absolute;top:16px;right:16px;width:22px;height:22px;
+    border:none;background:none;color:var(--text-dim);font-size:18px;
+    cursor:pointer;line-height:1;padding:0;
+  }
 </style>
 </head>
 <body>
@@ -193,7 +221,13 @@
 
 </div>
 
-<div class="modal-overlay" id="yongModal"></div>
+<div class="modal-overlay" id="yongModal">
+  <div class="modal-box">
+    <button class="modal-close" id="modalCloseBtn">×</button>
+    <div class="modal-title" id="modalTitle"></div>
+    <div class="modal-body" id="modalBody"></div>
+  </div>
+</div>
 
 <script>
 /* ============================================================
@@ -678,43 +712,89 @@ document.getElementById('confirmBirthBtn').onclick = function(){
 };
 
 // ---- 查询 ----
+/* ============================================================
+   弹窗系统
+   ============================================================ */
+function openInfoModal(title, bodyHtml){
+  document.getElementById('modalTitle').textContent = title;
+  document.getElementById('modalBody').innerHTML = bodyHtml;
+  document.getElementById('yongModal').classList.add('show');
+}
+function closeInfoModal(){
+  document.getElementById('yongModal').classList.remove('show');
+}
+document.getElementById('modalCloseBtn').onclick = closeInfoModal;
+document.getElementById('yongModal').onclick = function(e){
+  if(e.target === this) closeInfoModal();
+};
+
+const JIANCHU_INTRO = {
+  '建':'建是月建本身当值的日子，力量最强、也最"满"。诸事看起来都能做，但正因为太满，反而不适合大兴土木这类需要"留余地"的事。',
+  '除':'除是清除、除旧布新的意思，适合跟"去掉什么"有关的事，不适合开张、上任这类带有"开始"性质的事。',
+  '满':'满是丰满、圆满的意思，适合祈福这类"求满"的事，忌讳跟"求缺、求医"沾边的事。',
+  '平':'平是平常、平顺的意思，这天诸事平平，没有特别突出的吉凶倾向，宜稳妥、忌折腾。',
+  '定':'定是安定、固定的意思，适合"定下来"的事（订婚、安床），不适合"变动"的事（出行、搬家）。',
+  '执':'执是执守、抓牢的意思，适合"抓住不放"的事（捕猎、办案），不适合"开放流动"的事（开市）。',
+  '破':'破是打破、破碎的意思，是十二值神里公认的大凶日。除了看病吃药、拆房子这类本身就带"破坏"性质的事，其余能避开就避开。',
+  '危':'危是危险的意思，凡事宜谨慎小心，不适合登高、涉水这类本身有风险的活动。',
+  '成':'成是成功、成就的意思，是相对吉利的一天，适合正式开始的大事。',
+  '收':'收是收获、收纳的意思，适合"收进来"的事（收钱、纳畜），不适合"出去"的事（出行）。',
+  '开':'开是开放、开始的意思，适合开业、动土这类"开启"性质的事，但下葬这类"封闭"性质的事不适合。',
+  '闭':'闭是关闭、闭藏的意思，适合下葬这类"收尾封存"的事，不适合治疗、出行这类需要"打开、动起来"的事。'
+};
+
 function renderResult(){
   const y=Number(qY.value), m=Number(qM.value), d=Number(qD.value);
 
   const jc = computeJianChu(y,m,d);
   document.getElementById('jcHeadline').innerHTML = `
-    <div class="r-date">${y}年${m}月${d}日 · 月建${ZHI[jc.monthZhi]}</div>
+    <div class="r-date">${y}年${m}月${d}日 · 月建<span class="clickable" id="monthJianClick">${ZHI[jc.monthZhi]}</span></div>
     <div class="r-gz">${GAN[jc.dayGan]}${ZHI[jc.dayZhi]}日</div>
-    <div class="r-name">${jc.name}日</div>
+    <div class="r-name clickable" id="jcNameClick">${jc.name}日</div>
   `;
   document.getElementById('jcYiJi').innerHTML = `
     <div class="yj-row"><span class="yj-tag yi">宜</span><span class="yj-text">${jc.yiji.yi}</span></div>
     <div class="yj-row"><span class="yj-tag ji">忌</span><span class="yj-text">${jc.yiji.ji}</span></div>
   `;
+  document.getElementById('monthJianClick').onclick = ()=> openInfoModal('月建', `
+    <p>"月建"指这个月按节气划分对应的地支——比如"建子"，就是说这个月的月支是子。这里的分界点是节气（跟排八字用的月柱分界完全一致），不是农历初一。</p>
+    <p>月建是建除十二值神、黄道黑道十二神共同的推算起点，两套系统都是从月建开始，按固定顺序在十二地支上循环，推出每一天分别轮值到哪个神。</p>
+  `);
+  document.getElementById('jcNameClick').onclick = ()=> openInfoModal(`${jc.name}日`, `
+    <p>${JIANCHU_INTRO[jc.name]}</p>
+    <p><b>宜：</b>${jc.yiji.yi}</p>
+    <p><b>忌：</b>${jc.yiji.ji}</p>
+  `);
 
   const hhd = computeHuangHeiDao(jc.monthZhi, jc.dayZhi);
   document.getElementById('hhdBody').innerHTML = `
-    <div class="hhd-name ${hhd.isHuang?'huang':'hei'}">${hhd.shenName}（${hhd.isHuang?'黄道·吉':'黑道·凶'}）</div>
+    <div class="hhd-name clickable ${hhd.isHuang?'huang':'hei'}" id="hhdNameClick">${hhd.shenName}（${hhd.isHuang?'黄道·吉':'黑道·凶'}）</div>
     <div class="hhd-text">${SHEN_TEXT[hhd.shenName]}</div>
   `;
+  document.getElementById('hhdNameClick').onclick = ()=> openInfoModal(hhd.shenName, `
+    <p>${SHEN_TEXT[hhd.shenName]}</p>
+    <p>${hhd.isHuang ? '青龙、明堂、金匮、天德、玉堂、司命这六个是黄道吉神，逢黄道日办事相对顺遂。' : '天刑、朱雀、白虎、天牢、玄武、勾陈这六个是黑道凶神，逢黑道日诸事宜谨慎，能推迟的事尽量推迟。'}</p>
+  `);
 
   const cs = computeChongSha(jc.dayZhi);
   document.getElementById('csBody').innerHTML = `
     <div class="cs-row"><span class="cs-label">冲</span><span class="cs-value">${cs.chongShengxiao}</span></div>
     <div class="cs-row"><span class="cs-label">煞</span><span class="cs-value">${cs.shaDir}</span></div>
+    <div class="cs-note">"冲"是这天的地支与对应生肖构成六冲——传统上认为属${cs.chongShengxiao}的人这天容易情绪或状态上受些影响，不太适合替这个生肖的人安排重要的事。"煞"是这天所在的三合局对应的固定方位——传统上认为这天不宜朝这个方向动土、搬家、出远门，其余方向不受影响。</div>
   `;
 
   const personalEl = document.getElementById('personalBody');
   if(myChart){
     personalEl.innerHTML = buildPersonalAnalysis(jc, cs, myChart);
   } else {
-    personalEl.innerHTML = `<div class="p-empty">还没有起盘——在上面输入你的出生信息、点"确认生辰"之后，这里就会显示针对你个人的具体分析了。</div>`;
+    personalEl.innerHTML = `<div class="p-empty">还没有起盘——在上面输入你的出生信息、点"确认"之后，这里就会显示针对你个人的具体分析了。</div>`;
   }
 
   document.getElementById('resultArea').style.display = 'block';
 }
 document.getElementById('queryBtn').onclick = renderResult;
 renderResult(); // 打开页面直接显示今天的结果
+
 
 </script>
 </body>
