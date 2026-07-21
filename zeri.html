@@ -133,6 +133,15 @@
   .fx-summary p{margin:0 0 8px;}
   .fx-summary p:last-child{margin-bottom:0;}
   .fx-summary b{color:var(--brass);}
+  .zt-word{font-family:"Noto Serif SC",serif;font-weight:900;font-size:26px;margin-bottom:8px;}
+  .zt-word.good{color:var(--brass);}
+  .zt-word.bad{color:var(--vermillion);}
+  .zt-text{font-size:12.5px;color:var(--text-pale);line-height:1.75;}
+  .zt-meta{font-size:11px;color:var(--text-dim);margin-bottom:10px;}
+  .tianshe-note{
+    margin-top:10px;padding-top:10px;border-top:1px solid rgba(176,141,79,.12);
+    font-size:12px;color:var(--brass);line-height:1.7;
+  }
   .r-date .clickable, .r-name.clickable, .hhd-name.clickable{
     cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:3px;
   }
@@ -238,6 +247,11 @@
     <div class="card">
       <div class="section-title">流月九宫飞星</div>
       <div id="monthFeixingBody"></div>
+    </div>
+
+    <div class="card">
+      <div class="section-title">嫁娶周堂图</div>
+      <div id="zhoutangBody"></div>
     </div>
 
     <div class="card">
@@ -726,6 +740,67 @@ function computeMonthCenterStar(yearZhi, bracketIndex){
 }
 
 /* ============================================================
+   天赦日：按季节配特定日柱，逢凶化吉的万能吉日
+   （查证：七八个独立来源+《渊海子平》《集正历》《三车一览赋》等古籍原文一致，无分歧）
+   ============================================================ */
+const TIANSHE_LIST = [
+  {seasonBrackets:[0,1,2], gan:4, zhi:2, name:'戊寅'},  // 春（寅卯辰月）
+  {seasonBrackets:[3,4,5], gan:0, zhi:6, name:'甲午'},  // 夏（巳午未月）
+  {seasonBrackets:[6,7,8], gan:4, zhi:8, name:'戊申'},  // 秋（申酉戌月）
+  {seasonBrackets:[9,10,11], gan:0, zhi:0, name:'甲子'} // 冬（亥子丑月）
+];
+function computeTianShe(bracket, dayGan, dayZhi){
+  const season = TIANSHE_LIST.find(s=>s.seasonBrackets.includes(bracket));
+  return (season.gan===dayGan && season.zhi===dayZhi) ? season : null;
+}
+
+/* ============================================================
+   犯太岁：值/冲/刑/害四种，跟自己的年支比对
+   （六害查证：子未/丑午/寅巳/卯辰/申亥/酉戌，《三命通会》原文可查，无分歧）
+   ============================================================ */
+const ZHI_LIU_HAI = {0:7,7:0, 1:6,6:1, 2:5,5:2, 3:4,4:3, 8:11,11:8, 9:10,10:9};
+function isLiuHai(z1,z2){ return ZHI_LIU_HAI[z1]===z2; }
+function computeFanTaiSui(myYearZhi, queryYearZhi){
+  if(myYearZhi===queryYearZhi) return '值太岁（本命年）';
+  if(isChong(myYearZhi, queryYearZhi)) return '冲太岁';
+  if(isXing(myYearZhi, queryYearZhi)) return '刑太岁';
+  if(isLiuHai(myYearZhi, queryYearZhi)) return '害太岁';
+  return null;
+}
+const FANTAISUI_TEXT = {
+  '值太岁（本命年）':'今年是你的本命年，地支跟你自己的生肖完全相同，传统上认为本命年"太岁当头坐，无喜必有祸"，运势起伏容易比平常年份更明显，宜多添红色（红腰带、红绳这类），行事上多一分谨慎。',
+  '冲太岁':'今年的地支跟你的生肖正好相冲，是四种犯太岁里力量最重的一种，传统上认为这一年容易有较大的变动或波折，重大决定宜多考虑，行事宜稳不宜冒进。',
+  '刑太岁':'今年的地支跟你的生肖相刑，传统上认为这一年容易有反复纠结、人际摩擦这类不算大但持续的小烦恼，遇事别钻牛角尖，多和身边人沟通。',
+  '害太岁':'今年的地支跟你的生肖相害，传统上认为这一年容易有暗中的是非小人、口舌纠纷，行事宜低调，签重要合约、合作关系前多留意细节。'
+};
+
+/* ============================================================
+   嫁娶周堂图：按农历月份大小（30天=大月，29天=小月）起一个固定的8字循环，
+   大月从"夫"顺数，小月从"妇"逆数，值"堂第灶厨"为吉，值"夫妇翁姑"为不宜
+   （查证：六个独立来源一致，并用两个来源给出的完整worked example反推验证过公式）
+   ============================================================ */
+const ZHOUTANG_CYCLE = ['夫','姑','堂','翁','第','灶','妇','厨'];
+const ZHOUTANG_TEXT = {
+  '夫':'值"夫"，传统上认为这天嫁娶对新郎不利，不建议使用。',
+  '姑':'值"姑"，传统上认为这天嫁娶对婆婆不利，如果新人这边没有健在的婆婆，可以不忌讳。',
+  '堂':'值"堂"，是吉日，传统上认为这天适合办嫁娶这类喜事。',
+  '翁':'值"翁"，传统上认为这天嫁娶对公公不利，如果新人这边没有健在的公公，可以不忌讳。',
+  '第':'值"第"，是吉日，传统上认为这天适合办嫁娶这类喜事。',
+  '灶':'值"灶"，是吉日，传统上认为这天适合办嫁娶这类喜事。',
+  '妇':'值"妇"，传统上认为这天嫁娶对新娘不利，不建议使用。',
+  '厨':'值"厨"，是吉日，传统上认为这天适合办嫁娶这类喜事。'
+};
+function computeZhoutang(lYear, lMonth, lDay, isLeap){
+  const dim = isLeap ? leapDaysOf(lYear) : monthDaysOf(lYear, lMonth);
+  const isBigMonth = dim===30;
+  const word = isBigMonth
+    ? ZHOUTANG_CYCLE[(lDay-1) % 8]
+    : ZHOUTANG_CYCLE[((6-(lDay-1)) % 8 + 8) % 8];
+  const isGood = ['堂','第','灶','厨'].includes(word);
+  return {word, isBigMonth, isGood};
+}
+
+/* ============================================================
    对照我的命盘：把候选日的十神喜忌 + 日支冲合刑 + 冲煞是否冲到自己生肖
    套用到已经起好的命盘上
    ============================================================ */
@@ -990,6 +1065,12 @@ function renderResult(){
     <p><b>忌：</b>${jc.yiji.ji}</p>
   `);
 
+  const rFxEarly = computeBazi(y,m,d,12,0);
+  const tianshe = computeTianShe(rFxEarly.bracket, jc.dayGan, jc.dayZhi);
+  if(tianshe){
+    document.getElementById('jcYiJi').innerHTML += `<div class="tianshe-note">这天恰好是<b>天赦日</b>（${tianshe.name}），传统上认为是逢凶化吉的万能吉日，即使命中带凶煞，这天也能有所化解，百事皆宜。</div>`;
+  }
+
   const hhd = computeHuangHeiDao(jc.monthZhi, jc.dayZhi);
   document.getElementById('hhdBody').innerHTML = `
     <div class="hhd-name clickable ${hhd.isHuang?'huang':'hei'}" id="hhdNameClick">${hhd.shenName}（${hhd.isHuang?'黄道·吉':'黑道·凶'}）</div>
@@ -1007,8 +1088,8 @@ function renderResult(){
     <div class="cs-note">"冲"是这天的地支与对应生肖构成六冲——传统上认为属${cs.chongShengxiao}的人这天容易情绪或状态上受些影响，不太适合替这个生肖的人安排重要的事。"煞"是这天所在的三合局对应的固定方位——传统上认为这天不宜朝这个方向动土、搬家、出远门，其余方向不受影响。</div>
   `;
 
-  // 流年流月九宫飞星（用立春分界的年份/月份，跟排八字同一套节气标准）
-  const rFx = computeBazi(y,m,d,12,0);
+  // 流年流月九宫飞星 + 天赦日季节判断（用立春分界的年份/月份，跟排八字同一套节气标准）
+  const rFx = rFxEarly;
   const yearStar = computeYearCenterStar(rFx.baziYear);
   renderFeixingGrid('yearFeixingBody', yearStar,
     `${rFx.baziYear}年（${GAN[rFx.year.gan]}${ZHI[rFx.year.zhi]}年）· 中宫 <b>${yearStar}</b>（${ZIBAI_STAR_NAMES[yearStar]}）`);
@@ -1018,10 +1099,27 @@ function renderResult(){
   renderFeixingGrid('monthFeixingBody', monthStar,
     `${LUNAR_MONTH_NUM[rFx.bracket]}（${ZHI[(rFx.bracket+2)%12]}月）· 中宫 <b>${monthStar}</b>（${ZIBAI_STAR_NAMES[monthStar]}）`);
 
+  // 嫁娶周堂图（用农历月日）
+  const ztBody = document.getElementById('zhoutangBody');
+  if(qLunar){
+    const zt = computeZhoutang(qLunar.lYear, qLunar.lMonth, qLunar.lDay, qLunar.isLeap);
+    ztBody.innerHTML = `
+      <div class="zt-meta">农历${zt.isBigMonth?'大月（30天）':'小月（29天）'} · ${zt.isBigMonth?'从"夫"顺数':'从"妇"逆数'}</div>
+      <div class="zt-word ${zt.isGood?'good':'bad'}">${zt.word}</div>
+      <div class="zt-text">${ZHOUTANG_TEXT[zt.word]}</div>
+    `;
+  } else {
+    ztBody.innerHTML = `<div class="p-empty">这天超出农历可查范围（1900–2100年），无法推算周堂图。</div>`;
+  }
+
   const personalEl = document.getElementById('personalBody');
   if(myChart){
     const fxNote = buildYongshenFxNote(myChart, yearStar, monthStar);
-    personalEl.innerHTML = buildPersonalAnalysis(jc, cs, myChart) + (fxNote ? `<div style="margin-top:12px;padding-top:12px;border-top:1px solid rgba(176,141,79,.12);">${fxNote}</div>` : '');
+    const taisui = computeFanTaiSui(myChart.r.year.zhi, rFx.year.zhi);
+    const taisuiHtml = taisui ? `<div style="margin-top:12px;padding-top:12px;border-top:1px solid rgba(176,141,79,.12);"><p class="p-text"><b>${taisui}</b>：${FANTAISUI_TEXT[taisui]}</p></div>` : '';
+    personalEl.innerHTML = buildPersonalAnalysis(jc, cs, myChart)
+      + (fxNote ? `<div style="margin-top:12px;padding-top:12px;border-top:1px solid rgba(176,141,79,.12);">${fxNote}</div>` : '')
+      + taisuiHtml;
   } else {
     personalEl.innerHTML = `<div class="p-empty">还没有起盘——在上面输入你的出生信息、点"确认"之后，这里就会显示针对你个人的具体分析了。</div>`;
   }
