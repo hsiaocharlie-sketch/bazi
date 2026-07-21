@@ -112,6 +112,20 @@
   .p-text{font-size:12.5px;color:var(--text-pale);line-height:1.8;}
   .p-text b{color:var(--brass);}
   .footnote{font-size:10.5px;color:var(--text-dim);line-height:1.7;margin-top:6px;}
+  .fx-center-line{font-size:12.5px;color:var(--text-pale);margin-bottom:12px;}
+  .fx-center-line b{color:var(--brass);font-family:"Noto Serif SC",serif;}
+  .fx-grid{
+    display:grid;grid-template-columns:repeat(3,1fr);gap:6px;
+  }
+  .fx-cell{
+    background:#0e1017;border:1px solid rgba(176,141,79,.2);border-radius:4px;
+    padding:10px 4px;text-align:center;cursor:pointer;
+  }
+  .fx-cell.center{border-color:var(--brass);background:rgba(176,141,79,.12);}
+  .fx-cell .fx-dir{font-size:10px;color:var(--text-dim);margin-bottom:4px;}
+  .fx-cell .fx-num{
+    font-family:"Noto Serif SC",serif;font-weight:900;font-size:20px;color:var(--vermillion);
+  }
   .r-date .clickable, .r-name.clickable, .hhd-name.clickable{
     cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:3px;
   }
@@ -207,6 +221,16 @@
     <div class="card">
       <div class="section-title">冲煞</div>
       <div id="csBody"></div>
+    </div>
+
+    <div class="card">
+      <div class="section-title">流年九宫飞星</div>
+      <div id="yearFeixingBody"></div>
+    </div>
+
+    <div class="card">
+      <div class="section-title">流月九宫飞星</div>
+      <div id="monthFeixingBody"></div>
     </div>
 
     <div class="card">
@@ -568,6 +592,61 @@ function computeChongSha(dayZhi){
 }
 
 /* ============================================================
+   流年流月九宫飞星：
+   - 流年中宫星：常数11减年份四位数字之和（>11时再加总一次），已用8个跨世纪年份交叉验证
+   - 流月中宫星：按年支分三组（子午卯酉/寅申巳亥/辰戌丑未），各自固定起点逐月递减，
+     已用完整月表交叉验证；"正月"即bracket0（寅月，立春起），跟排八字月柱同一套节气分界
+   - 九宫排布：中宫定星后按固定顺序（中→西北→正西→东北→正南→正北→西南→正东→东南）顺飞，
+     已用"8入中"的完整worked example核对过全部8个方位
+   ============================================================ */
+const FEIXING_PALACE_ORDER = [
+  {key:'中', label:'中宫'}, {key:'西北', label:'西北'}, {key:'西', label:'正西'},
+  {key:'东北', label:'东北'}, {key:'南', label:'正南'}, {key:'北', label:'正北'},
+  {key:'西南', label:'西南'}, {key:'东', label:'正东'}, {key:'东南', label:'东南'}
+];
+function flyStars(centerStar){
+  const result = {};
+  FEIXING_PALACE_ORDER.forEach((p,i)=>{
+    let star = centerStar + i;
+    while(star>9) star -= 9;
+    result[p.key] = star;
+  });
+  return result;
+}
+const ZIBAI_STAR_NAMES = {
+  1:'一白贪狼', 2:'二黑巨门', 3:'三碧禄存', 4:'四绿文曲', 5:'五黄廉贞',
+  6:'六白武曲', 7:'七赤破军', 8:'八白左辅', 9:'九紫右弼'
+};
+const ZIBAI_STAR_TEXT = {
+  1:'五行属水，主桃花、人缘、官运、文思，是常见的吉星，尤其利姻缘和名声。',
+  2:'五行属土，主疾病、是非，传统称"病符星"，飞临之处宜留意健康、少动土。',
+  3:'五行属木，主口舌、官非、争执，飞临之处容易招惹是非纠纷，宜多忍让。',
+  4:'五行属木，主文昌、学业、才艺，是吉星，利考试升学、利文职工作。',
+  5:'五行属土，是九星里力量最重的煞星，称"五黄大煞"，飞临之处忌动土、忌久坐停留，宜静不宜动。',
+  6:'五行属金，主权威、偏财、武职，是吉星，利仕途、利经商。',
+  7:'五行属金，主破财、口舌、金属外伤，传统上偏凶，飞临之处宜谨慎理财、留意言语冲突。',
+  8:'五行属土，主财运、田宅、正财，是当下最受重视的吉星之一，飞临之处利置业、利求财。',
+  9:'五行属火，主喜庆、姻缘、添丁、荣誉，是吉星，飞临之处利结婚、生子、升迁这类喜事。'
+};
+function computeYearCenterStar(year){
+  const digitSum = n => String(n).split('').reduce((s,c)=>s+Number(c),0);
+  let s = digitSum(year);
+  if(s > 11) s = digitSum(s);
+  let star = 11 - s;
+  if(star <= 0) star += 9;
+  return star;
+}
+function monthGroupStart(yearZhi){
+  if([0,6,3,9].includes(yearZhi)) return 8;   // 子午卯酉年
+  if([2,8,5,11].includes(yearZhi)) return 2;  // 寅申巳亥年
+  return 5; // 辰戌丑未年
+}
+function computeMonthCenterStar(yearZhi, bracketIndex){
+  const start = monthGroupStart(yearZhi);
+  return ((start - bracketIndex - 1) % 9 + 9) % 9 + 1;
+}
+
+/* ============================================================
    对照我的命盘：把候选日的十神喜忌 + 日支冲合刑 + 冲煞是否冲到自己生肖
    套用到已经起好的命盘上
    ============================================================ */
@@ -743,6 +822,29 @@ const JIANCHU_INTRO = {
   '闭':'闭是关闭、闭藏的意思，适合下葬这类"收尾封存"的事，不适合治疗、出行这类需要"打开、动起来"的事。'
 };
 
+const FX_DISPLAY_ORDER = ['东南','南','西南','东','中','西','东北','北','西北'];
+function renderFeixingGrid(containerId, centerStar, headlineHtml){
+  const layout = flyStars(centerStar);
+  const cellsHtml = FX_DISPLAY_ORDER.map(dir=>{
+    const star = layout[dir];
+    const isCenter = dir==='中';
+    return `<div class="fx-cell${isCenter?' center':''}" data-star="${star}">
+      <div class="fx-dir">${dir}</div>
+      <div class="fx-num">${star}</div>
+    </div>`;
+  }).join('');
+  document.getElementById(containerId).innerHTML = `
+    <div class="fx-center-line">${headlineHtml}</div>
+    <div class="fx-grid">${cellsHtml}</div>
+  `;
+  document.querySelectorAll(`#${containerId} .fx-cell`).forEach(cell=>{
+    cell.onclick = ()=>{
+      const star = Number(cell.dataset.star);
+      openInfoModal(`${ZIBAI_STAR_NAMES[star]}星`, `<p>${ZIBAI_STAR_TEXT[star]}</p>`);
+    };
+  });
+}
+
 function renderResult(){
   const y=Number(qY.value), m=Number(qM.value), d=Number(qD.value);
 
@@ -782,6 +884,17 @@ function renderResult(){
     <div class="cs-row"><span class="cs-label">煞</span><span class="cs-value">${cs.shaDir}</span></div>
     <div class="cs-note">"冲"是这天的地支与对应生肖构成六冲——传统上认为属${cs.chongShengxiao}的人这天容易情绪或状态上受些影响，不太适合替这个生肖的人安排重要的事。"煞"是这天所在的三合局对应的固定方位——传统上认为这天不宜朝这个方向动土、搬家、出远门，其余方向不受影响。</div>
   `;
+
+  // 流年流月九宫飞星（用立春分界的年份/月份，跟排八字同一套节气标准）
+  const rFx = computeBazi(y,m,d,12,0);
+  const yearStar = computeYearCenterStar(rFx.baziYear);
+  renderFeixingGrid('yearFeixingBody', yearStar,
+    `${rFx.baziYear}年（${GAN[rFx.year.gan]}${ZHI[rFx.year.zhi]}年）· 中宫 <b>${yearStar}</b>（${ZIBAI_STAR_NAMES[yearStar]}）`);
+
+  const LUNAR_MONTH_NUM = ['正月','二月','三月','四月','五月','六月','七月','八月','九月','十月','十一月','十二月'];
+  const monthStar = computeMonthCenterStar(rFx.year.zhi, rFx.bracket);
+  renderFeixingGrid('monthFeixingBody', monthStar,
+    `${LUNAR_MONTH_NUM[rFx.bracket]}（${ZHI[(rFx.bracket+2)%12]}月）· 中宫 <b>${monthStar}</b>（${ZIBAI_STAR_NAMES[monthStar]}）`);
 
   const personalEl = document.getElementById('personalBody');
   if(myChart){
