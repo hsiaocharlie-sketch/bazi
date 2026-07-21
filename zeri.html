@@ -944,7 +944,7 @@ document.getElementById('confirmBirthBtn').onclick = function(){
     ? `农历 ${lunarYearGanZhi(lunar.lYear)}年${lunar.isLeap?'闰':''}${toChinaMonth(lunar.lMonth)}${toChinaDay(lunar.lDay)}`
     : '农历超出可查范围（1900–2100年）';
   document.getElementById('birthConfirmedNote').innerHTML =
-    `${lunarStr}<br>${GAN[r.day.gan]}${ZHI[r.day.zhi]}日 · ${xiCamp==='帮身'?'身强':'身弱或中和'}倾向`;
+    `${lunarStr}<br>${GAN[r.day.gan]}${ZHI[r.day.zhi]}日 · ${a.verdict}`;
   renderResult(); // 起盘后如果已经查过日期，顺手刷新个人化区块
 };
 
