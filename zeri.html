@@ -126,6 +126,13 @@
   .fx-cell .fx-num{
     font-family:"Noto Serif SC",serif;font-weight:900;font-size:20px;color:var(--vermillion);
   }
+  .fx-summary{
+    margin-top:12px;padding-top:12px;border-top:1px solid rgba(176,141,79,.12);
+    font-size:12px;color:var(--text-pale);line-height:1.75;
+  }
+  .fx-summary p{margin:0 0 8px;}
+  .fx-summary p:last-child{margin-bottom:0;}
+  .fx-summary b{color:var(--brass);}
   .r-date .clickable, .r-name.clickable, .hhd-name.clickable{
     cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:3px;
   }
@@ -823,6 +830,39 @@ const JIANCHU_INTRO = {
 };
 
 const FX_DISPLAY_ORDER = ['东南','南','西南','东','中','西','东北','北','西北'];
+const GOOD_STARS = [1,4,6,8,9]; // 一白/四绿/六白/八白/九紫，传统上偏吉
+const BAD_STARS = [2,3,5,7];    // 二黑/三碧/五黄/七赤，传统上偏凶，五黄尤重
+function findStarDir(centerStar, star){
+  const layout = flyStars(centerStar);
+  return Object.keys(layout).find(k=>layout[k]===star);
+}
+function buildGenericFxSummary(centerStar){
+  const wuhuang = findStarDir(centerStar, 5);
+  const erhei = findStarDir(centerStar, 2);
+  const jiuzi = findStarDir(centerStar, 9);
+  const babai = findStarDir(centerStar, 8);
+  const wuhuangText = wuhuang==='中' ? '五黄落在中宫，是这段时间力量最重的位置，家中或办公室中央区域这段时间宜保持安静，少在此久坐停留、少动土装修。' : `五黄飞到了${wuhuang}方，这是九星里最忌讳的方位，这段时间${wuhuang}方最好别动土、装修，也别长时间在这个方位久坐办公。`;
+  const erheiText = erhei==='中' ? '二黑也落在中宫，中央区域健康方面这段时间宜多留意。' : `二黑（病符星）飞到了${erhei}方，这段时间${erhei}方在健康层面宜多留意，卧室、厨房如果正好在这个方位，可以放一些五行属金的物件来化泄。`;
+  const goodText = `${jiuzi}方是九紫（喜庆、姻缘），${babai}方是八白（财运、田宅），这两个方位这段时间相对适合多加利用，比如把常坐的位置、财位摆设安排在这两个方位。`;
+  return `<p>${wuhuangText}</p><p>${erheiText}</p><p>${goodText}</p>`;
+}
+function buildYongshenFxNote(myChart, yearStar, monthStar){
+  if(!myChart || myChart.a.yongElem===null) return null;
+  const ELEM_DIR = {0:'东',1:'南',2:'中',3:'西',4:'北'};
+  const elemDir = ELEM_DIR[myChart.a.yongElem];
+  const yearAtDir = flyStars(yearStar)[elemDir];
+  const monthAtDir = flyStars(monthStar)[elemDir];
+  function judge(star){
+    if(star===5) return '五黄煞星，这段时间格外要避开';
+    if(GOOD_STARS.includes(star)) return '吉星';
+    return '偏凶的星';
+  }
+  const bothGood = GOOD_STARS.includes(yearAtDir) && GOOD_STARS.includes(monthAtDir);
+  const eitherWuhuang = (yearAtDir===5 || monthAtDir===5);
+  const overall = bothGood ? '流年流月都偏吉，是格外适合多加利用的方位' : eitherWuhuang ? '撞上了五黄，即使是你的用神方位，这段时间也建议避开动土、久坐' : '吉凶参半，可以酌情参考';
+  return `<p>你的用神是${myChart.a.yongElemName}，对应<b>${elemDir}</b>方。这个方位流年飞的是${ZIBAI_STAR_NAMES[yearAtDir]}（${judge(yearAtDir)}），流月飞的是${ZIBAI_STAR_NAMES[monthAtDir]}（${judge(monthAtDir)}）。对你来说，这个方位这段时间${overall}。</p>`;
+}
+
 function renderFeixingGrid(containerId, centerStar, headlineHtml){
   const layout = flyStars(centerStar);
   const cellsHtml = FX_DISPLAY_ORDER.map(dir=>{
@@ -836,6 +876,7 @@ function renderFeixingGrid(containerId, centerStar, headlineHtml){
   document.getElementById(containerId).innerHTML = `
     <div class="fx-center-line">${headlineHtml}</div>
     <div class="fx-grid">${cellsHtml}</div>
+    <div class="fx-summary">${buildGenericFxSummary(centerStar)}</div>
   `;
   document.querySelectorAll(`#${containerId} .fx-cell`).forEach(cell=>{
     cell.onclick = ()=>{
@@ -898,7 +939,8 @@ function renderResult(){
 
   const personalEl = document.getElementById('personalBody');
   if(myChart){
-    personalEl.innerHTML = buildPersonalAnalysis(jc, cs, myChart);
+    const fxNote = buildYongshenFxNote(myChart, yearStar, monthStar);
+    personalEl.innerHTML = buildPersonalAnalysis(jc, cs, myChart) + (fxNote ? `<div style="margin-top:12px;padding-top:12px;border-top:1px solid rgba(176,141,79,.12);">${fxNote}</div>` : '');
   } else {
     personalEl.innerHTML = `<div class="p-empty">还没有起盘——在上面输入你的出生信息、点"确认"之后，这里就会显示针对你个人的具体分析了。</div>`;
   }
