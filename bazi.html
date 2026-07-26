@@ -466,6 +466,9 @@
     width:5px;height:5px;border-radius:50%;
     background:var(--brass);
   }
+  .ln-item.has-combo{
+    border-bottom:2px solid #8a5fc4;
+  }
   .ln-year{font-size:9px;color:var(--text-dim);}
   .ln-gz{font-family:"Noto Serif SC",serif;font-size:13px;color:#f2ede0;margin:2px 0;}
   .ln-tag{font-size:8.5px;padding:1px 3px;border-radius:6px;display:inline-block;}
@@ -1470,7 +1473,7 @@ function ageToFlowingBracket(age){
   return '中老年';
 }
 
-function openShishenModal(sg, xj, age, contextLabel, facts, notes, romanceHits, dayunSplit){
+function openShishenModal(sg, xj, age, contextLabel, facts, notes, romanceHits, dayunSplit, yearCombos){
   const bracket = ageToFlowingBracket(age);
   const generalText = annotateText(getFlowingShishenText(bracket, sg, xj), facts);
   const familyTextRaw = getFlowingFamilyText(bracket, sg, xj);
@@ -1480,6 +1483,9 @@ function openShishenModal(sg, xj, age, contextLabel, facts, notes, romanceHits, 
     : '';
   const romanceHtml = (romanceHits && romanceHits.length)
     ? `<div class="modal-sec"><div class="modal-h">姻缘星提示</div><div class="modal-p">这一年的地支恰好碰上了你命盘自己的${romanceHits.join('、')}——传统上判断"什么时候容易有姻缘"，很重要的一个手法就是看流年会不会撞上这几颗星。这一年相对更容易出现恋爱、订婚、结婚这类跟感情相关的机缘，单身的人尤其可以多留意，已婚的人也可能这一年感情生活更活跃、家里添丁的概率也会高一些。</div></div>`
+    : '';
+  const combosHtml = (yearCombos && yearCombos.length)
+    ? `<div class="modal-sec"><div class="modal-h">流年组合提示</div>${yearCombos.map(c=>`<div class="combo-item"><div class="combo-name">${c.name}</div><div class="stext">这个组合命盘本身只占了一部分，这一年的流年干支正好补上缺的那部分，传统上认为是这个组合被"冲动"、真正触发发挥作用的一年——${c.text}</div></div>`).join('')}</div>`
     : '';
   const generalLabel = dayunSplit ? `前五年（${dayunSplit.startAge}-${dayunSplit.startAge+4}岁）· 天干${sg}·${xj}` : `${contextLabel} · 约${age}岁 · ${bracket} · 整体运势`;
   const splitHtml = dayunSplit ? `
@@ -1492,6 +1498,7 @@ function openShishenModal(sg, xj, age, contextLabel, facts, notes, romanceHits, 
     ${splitHtml}
     ${familyText ? `<div class="modal-sec"><div class="modal-h">婚姻家庭</div><div class="modal-p">${familyText}</div></div>` : ''}
     ${romanceHtml}
+    ${combosHtml}
     ${notesHtml}
     <div class="modal-caveat">喜/忌是相对这份命盘"旺衰"判断而言的：喜神代表这段时间相对顺、容易借上力；忌神代表这段时间消耗压力更明显，需要多留意调整，不是绝对的吉凶断言。${dayunSplit ? '前五年主要看大运天干的力量，后五年主要看大运地支本气的力量，这是命理里常见的一种细分读法，不代表前五年地支完全不起作用、后五年天干完全消失，只是主次有别。' : '年龄分段是粗略近似，仅供参考。'}</div>
   `;
@@ -2984,6 +2991,19 @@ function detectCombos(occ){
   return COMBO_RULES.filter(rule=> rule.need.every(group=> group.some(g=>occ[g])));
 }
 
+// 流年组合触发：命盘本身只满足了组合的一部分，这一年流年干支正好补上缺的那部分，才算"触发"
+// 命盘本身已经完整具备的组合不会重复提示（那属于命盘自带的，不是这一年新触发的）
+function computeYearCombos(dayGanIdx, natalOcc, yearGan, yearZhi){
+  const yearSgSet = new Set();
+  yearSgSet.add(tenGodOf(dayGanIdx, yearGan));
+  BRANCH_HIDDEN[yearZhi].forEach(stemIdx=> yearSgSet.add(tenGodOf(dayGanIdx, stemIdx)));
+  return COMBO_RULES.filter(rule=>{
+    const natalSatisfies = rule.need.every(group=> group.some(g=>natalOcc[g]));
+    if(natalSatisfies) return false;
+    return rule.need.every(group=> group.some(g=> natalOcc[g] || yearSgSet.has(g)));
+  });
+}
+
 const STAGE_TITLES = {
   '年柱':{title:'童年', sub:'祖辈 · 原生家庭 · 早年性格底色（0–15岁）', ageMin:0, ageMax:15},
   '月柱':{title:'青年', sub:'事业人际 · 内心性格（16–30岁）', ageMin:16, ageMax:30},
@@ -3460,6 +3480,9 @@ function renderDaYun(r, a, dayun, facts, birthY, birthM, birthD, birthHour, birt
     return hits;
   }
 
+  // 命盘本身的十神占用情况，用来判断流年是否补上组合缺的那一块
+  const natalOcc = collectShishenOccurrences(r);
+
   const header = document.createElement('div');
   header.className='dayun-header';
   header.innerHTML = `${dayun.forward?'顺排':'逆排'} · 起运 <b class="qiyun-click">${dayun.qiyunYears}岁${dayun.qiyunMonths}个月${dayun.qiyunDays}天</b>（约${dayun.startYear}年）`;
@@ -3501,12 +3524,13 @@ function renderDaYun(r, a, dayun, facts, birthY, birthM, birthD, birthHour, birt
       const lnAge = p.startAgeYears + k;
       const lnNotes = computeChongHeForLiunian(lzhi, r, dayGanIdx, xiCamp, p.zhi);
       const lnRomance = romanceCheck(lzhi);
+      const lnCombos = computeYearCombos(dayGanIdx, natalOcc, lgan, lzhi);
       const lnItem = document.createElement('div');
-      lnItem.className='ln-item' + (lnNotes.length ? ' has-note' : '') + (lnRomance.length ? ' has-romance' : '');
+      lnItem.className='ln-item' + (lnNotes.length ? ' has-note' : '') + (lnRomance.length ? ' has-romance' : '') + (lnCombos.length ? ' has-combo' : '');
       lnItem.innerHTML = `<div class="ln-year">${Y}</div><div class="ln-gz">${GAN[lgan]}${ZHI[lzhi]}</div><div class="ln-tag ${lxj==='喜'?'xi':'ji'}">${lsg}·${lxj}</div>`;
       lnItem.onclick = (e)=>{
         e.stopPropagation();
-        openShishenModal(lsg, lxj, lnAge, `流年 ${Y}年`, facts, lnNotes, lnRomance);
+        openShishenModal(lsg, lxj, lnAge, `流年 ${Y}年`, facts, lnNotes, lnRomance, null, lnCombos);
       };
       panel.appendChild(lnItem);
     }
