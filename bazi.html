@@ -239,6 +239,7 @@
   }
   .health-item.health-warn .health-h{color:var(--vermillion-dim);}
   .health-item .health-p{font-size:12px;color:var(--text-pale);line-height:1.7;}
+  .geju-click{cursor:pointer;}
   .minggong-line{
     position:relative;text-align:center;
     margin-top:14px;padding-top:12px;
@@ -3366,6 +3367,21 @@ function computeGeJu(r, a){
   const xj = SHISHEN_CAMP[sg]===xiCamp ? '喜' : '忌';
   return {sg, name:GEJU_NAME[sg], touGan, xj};
 }
+function openGeJuCalcModal(r, geju){
+  const monthMainStem = BRANCH_HIDDEN[r.month.zhi][0];
+  const specialNote = (geju.sg==='比肩' || geju.sg==='劫财')
+    ? `按十神来说，月支本气对日主是"${geju.sg}"，但比肩、劫财这两种情况传统上不叫"比肩格""劫财格"，而是分别改叫"建禄格"（比肩当令）和"月劫格"（劫财当令），这是这套体系里的一个专属叫法惯例。`
+    : `这个十神直接就是格局的名字——"${geju.sg}"对应"${geju.name}"。`;
+  document.getElementById('modalTitle').textContent = '格局怎么定出来的';
+  document.getElementById('modalBody').innerHTML = `
+    <div class="modal-sec"><div class="modal-h">第一步：看月支本气</div><div class="modal-p">格局取的是"月令"——也就是月支里藏的本气天干，因为月支代表出生时节当令之气，力量最重、最能代表这张命盘的底色。这张命盘月支是${ZHI[r.month.zhi]}，本气是${GAN[monthMainStem]}。</div></div>
+    <div class="modal-sec"><div class="modal-h">第二步：算这个本气对日主是什么十神</div><div class="modal-p">日主是${GAN[r.day.gan]}，月支本气${GAN[monthMainStem]}对日主来说是"${geju.sg}"。${specialNote}</div></div>
+    <div class="modal-sec"><div class="modal-h">这张命盘的结果</div><div class="modal-p">月支${ZHI[r.month.zhi]}本气${GAN[monthMainStem]}对日主${GAN[r.day.gan]}是${geju.sg}，所以这张命盘定为<b>${geju.name}</b>。</div></div>
+    <div class="modal-caveat">格局只看月支本气这一个位置，是这套简化体系里最主要的判断依据；完整的古法格局理论还会看月支本气有没有被冲、本气之外的中气余气是否更旺这些更细的情况，这里采用的是最常见、最基础的取法。</div>
+  `;
+  document.getElementById('yongModal').classList.add('show');
+}
+
 function renderGeJu(r, a){
   const geju = computeGeJu(r, a);
   const body = document.getElementById('gejuBody');
@@ -3377,7 +3393,7 @@ function renderGeJu(r, a){
     : '这个格局本身在这张命盘里属于"忌"的一方，代表它对日主偏消耗——格局本身指出的路子，跟命盘整体的旺衰不完全顺，需要命里有印星或比劫这类力量来化解、撑住，才容易真正把这个格局的正面意义发挥出来，不然容易走得比较辛苦。';
   body.innerHTML = `
     <div class="health-item">
-      <div class="health-h">${geju.name}</div>
+      <div class="health-h geju-click">${geju.name}<span class="yong-hint">点击查看怎么定的 ›</span></div>
       <div class="health-p">${GEJU_TEXT[geju.sg]}</div>
     </div>
     <div class="health-item">
@@ -3390,6 +3406,8 @@ function renderGeJu(r, a){
     </div>
     <div class="modal-caveat" style="margin-top:8px;padding-top:8px;">格局判断的是月支本气对日主的十神关系，讲的是"这条人生路子大概长什么样"，跟前面"事业倾向"讲的"敢闯还是求稳"是两个角度，可以互相参照；格局本身没有绝对的高低贵贱，具体成就大小还要看整体命局配合和大运流年是否给力。</div>
   `;
+  const gejuClickEl = body.querySelector('.geju-click');
+  if(gejuClickEl){ gejuClickEl.onclick = ()=> openGeJuCalcModal(r, geju); }
 }
 
 const PALACE_MEANING = {
