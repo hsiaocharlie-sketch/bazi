@@ -3776,6 +3776,10 @@ document.getElementById('goBtn').onclick = function(){
     `${lunarStr}　${pad(hh)}:${pad(mi)}　·　<b>八字年 ${r.baziYear}</b>`;
 
   document.getElementById('result').classList.add('show');
+
+  // 顺手把双人合盘"第一人"的生辰同步过去，不用重新输一遍
+  mA_Y.value = y; mA_M.value = m; refreshMDays(mA_Y, mA_M, mA_D); mA_D.value = d;
+  mA_H.value = hh; mA_Min.value = mi;
 };
 
 // 默认展示一次示例
