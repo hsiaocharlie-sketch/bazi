@@ -3365,7 +3365,7 @@ function computeGeJu(r, a){
   const touGan = [r.year.gan, r.month.gan, r.hour.gan].includes(monthMainStem);
   const xiCamp = a.bangScore>=a.haoScore ? '耗身' : '帮身';
   const xj = SHISHEN_CAMP[sg]===xiCamp ? '喜' : '忌';
-  return {sg, name:GEJU_NAME[sg], touGan, xj};
+  return {sg, name:GEJU_NAME[sg], touGan, xj, monthMainStem};
 }
 function openGeJuCalcModal(r, geju){
   const monthMainStem = BRANCH_HIDDEN[r.month.zhi][0];
@@ -3387,7 +3387,7 @@ function renderGeJu(r, a){
   const body = document.getElementById('gejuBody');
   const touGanText = geju.touGan
     ? '这个格局的天干在命盘其他位置也透出来了，格局清纯、力量集中，代表这条人生路子走得相对纯粹、见效也容易更快。'
-    : '这个格局目前只藏在月支本气里，没有透干，格局的力量偏含蓄内敛——不代表不成立，只是需要走到相应的大运流年，这股力量才容易真正显发出来。';
+    : `这个格局目前只藏在月支本气里，没有透干，格局的力量偏含蓄内敛——不代表不成立，只是需要等大运或流年的天干走到<b>${GAN[geju.monthMainStem]}</b>（或者地支里再藏有这个${GAN[geju.monthMainStem]}，本气中气余气都算），这个格局才算"透干"，力量才会真正显发出来。`;
   const xjText = geju.xj==='喜'
     ? '这个格局本身在这张命盘里属于"喜"的一方，代表它对日主是助力，格局走的路子跟命盘本身的旺衰是顺着来的，相对容易顺遂发挥。'
     : '这个格局本身在这张命盘里属于"忌"的一方，代表它对日主偏消耗——格局本身指出的路子，跟命盘整体的旺衰不完全顺，需要命里有印星或比劫这类力量来化解、撑住，才容易真正把这个格局的正面意义发挥出来，不然容易走得比较辛苦。';
