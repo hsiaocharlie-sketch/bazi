@@ -495,6 +495,8 @@
   .reason-line{
     margin-top:6px;font-size:12px;color:var(--text-dim);line-height:1.6;
   }
+  .reason-line.reason-click{cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:2px;}
+  .strength-click{cursor:pointer;}
 
   .elem-row{display:flex;gap:6px;margin-top:12px;}
   .elem-chip{
@@ -1141,32 +1143,36 @@ function analyzeStrength(r){
   const dayGanIdx = r.day.gan;
   const dayElem = Math.floor(dayGanIdx/2);
 
-  const items = []; // {stemIdx, weight}
-  items.push({stemIdx:r.year.gan, weight:1.0});
-  items.push({stemIdx:r.month.gan, weight:1.0});
-  items.push({stemIdx:r.hour.gan, weight:1.0});
+  const items = []; // {stemIdx, weight, label}
+  items.push({stemIdx:r.year.gan, weight:1.0, label:'年干'});
+  items.push({stemIdx:r.month.gan, weight:1.0, label:'月干'});
+  items.push({stemIdx:r.hour.gan, weight:1.0, label:'时干'});
 
   const branches = [
-    {zhi:r.year.zhi, isMonth:false},
-    {zhi:r.month.zhi, isMonth:true}, // 月支：月令，权重加倍
-    {zhi:r.day.zhi, isMonth:false},
-    {zhi:r.hour.zhi, isMonth:false}
+    {zhi:r.year.zhi, isMonth:false, label:'年支'},
+    {zhi:r.month.zhi, isMonth:true, label:'月支（月令，权重加倍）'}, // 月支：月令，权重加倍
+    {zhi:r.day.zhi, isMonth:false, label:'日支'},
+    {zhi:r.hour.zhi, isMonth:false, label:'时支'}
   ];
   branches.forEach(b=>{
     BRANCH_HIDDEN[b.zhi].forEach((stemIdx, idx)=>{
       let w = idx===0 ? 1.0 : 0.3; // 本气1.0，中气/余气0.3
       if(b.isMonth) w *= 2;
-      items.push({stemIdx, weight:w});
+      const qiLabel = idx===0 ? '本气' : (idx===1?'中气':'余气');
+      items.push({stemIdx, weight:w, label:`${b.label}藏干·${qiLabel}`});
     });
   });
 
   const elemScore = [0,0,0,0,0]; // 木火土金水 五行总分（不分帮耗，用于用神选择）
   let bangScore=0, haoScore=0;
+  const breakdown = [];
   items.forEach(it=>{
     const elem = Math.floor(it.stemIdx/2);
     elemScore[elem]+=it.weight;
     const sg = tenGodOf(dayGanIdx, it.stemIdx);
-    if(SHISHEN_CAMP[sg]==='帮身') bangScore+=it.weight; else haoScore+=it.weight;
+    const camp = SHISHEN_CAMP[sg];
+    if(camp==='帮身') bangScore+=it.weight; else haoScore+=it.weight;
+    breakdown.push({label:it.label, stemIdx:it.stemIdx, weight:it.weight, sg, camp});
   });
 
   const total = bangScore+haoScore;
@@ -1176,27 +1182,33 @@ function analyzeStrength(r){
   else verdict = diff>0 ? '身强' : '身弱';
 
   const FIVE_ELEM_NAMES = ['木','火','土','金','水'];
-  let yongElem, yongReason;
+  let yongElem, yongReason, yongCase, candidateDetail=null, yinScore=undefined;
   if(verdict==='身强'){
     const candidates = [(dayElem+1)%5, (dayElem+2)%5, (dayElem+3)%5]; // 食伤/财/官杀
     candidates.sort((a,b)=>elemScore[b]-elemScore[a]);
     yongElem = candidates[0];
     yongReason = '日主偏强，取克泄耗日主中力量最旺的一行为用神，助其宣泄或制衡。';
+    yongCase = 'shenqiang';
+    candidateDetail = candidates.map(e=>({name:FIVE_ELEM_NAMES[e], score:elemScore[e]}));
   } else if(verdict==='身弱'){
     const yinElem = (dayElem+4)%5; // 生我
+    yinScore = elemScore[yinElem];
     if(elemScore[yinElem] > 0){
       yongElem = yinElem;
       yongReason = '日主偏弱，取生扶日主的印星一行为用神，助其得生。';
+      yongCase = 'shenruo_youyin';
     } else {
       yongElem = dayElem;
       yongReason = '日主偏弱且盘中印星几乎无根，改取日主本气（比劫）一行为用神，助其自立。';
+      yongCase = 'shenruo_wuyin';
     }
   } else {
     yongElem = null;
     yongReason = '日主旺衰接近平衡（中和），此时用神更多取决于调候（寒暖燥湿）等因素，不在扶抑法这套简化逻辑的判断范围内。';
+    yongCase = 'zhonghe';
   }
 
-  return {verdict, bangScore, haoScore, elemScore, yongElem, yongElemName: yongElem!==null?FIVE_ELEM_NAMES[yongElem]:null, yongReason};
+  return {verdict, bangScore, haoScore, elemScore, yongElem, yongElemName: yongElem!==null?FIVE_ELEM_NAMES[yongElem]:null, yongReason, yongCase, breakdown, total, candidateDetail, yinScore};
 }
 
 /* ============================================================
@@ -1235,11 +1247,42 @@ const YONG_DETAIL = {
   }
 };
 
-function openYongModal(elem){
+function openStrengthModal(r, a){
+  const rows = a.breakdown.map(it=>
+    `<div class="chonghe-item"><b>${it.label}</b>：${GAN[it.stemIdx]}（${it.sg}·${it.camp}）　权重${it.weight.toFixed(1)}</div>`
+  ).join('');
+  const threshold = (a.total*0.15).toFixed(2);
+  const diff = Math.abs(a.bangScore-a.haoScore).toFixed(2);
+  document.getElementById('modalTitle').textContent = `旺衰怎么算出来的`;
+  document.getElementById('modalBody').innerHTML = `
+    <div class="modal-sec"><div class="modal-h">第一步：把四柱拆成一笔笔"力量"</div><div class="modal-p">年干、月干、时干各记1分（日干是日主本身，不参与自比）；四柱地支里藏的天干也各自记分——本气记1分，中气/余气记0.3分；月支因为是"月令"，代表出生时节的当令之气，权重再乘以2。下面是这张命盘里逐条的明细：</div></div>
+    <div class="modal-sec">${rows}</div>
+    <div class="modal-sec"><div class="modal-h">第二步：分成"帮身"和"耗身"两队</div><div class="modal-p">每一笔力量算出对日主是什么十神，比肩、劫财、正印、偏印这四个算"帮身"（帮日主撑腰）；食神、伤官、正财、偏财、正官、七杀这六个算"耗身"（消耗日主）。这张命盘帮身合计 <b>${a.bangScore.toFixed(2)}</b> 分，耗身合计 <b>${a.haoScore.toFixed(2)}</b> 分。</div></div>
+    <div class="modal-sec"><div class="modal-h">第三步：比较差距，定旺衰</div><div class="modal-p">帮身耗身总分是${a.total.toFixed(2)}分，两边分差是${diff}分。如果分差小于总分的15%（这里是${threshold}分），判定"中和"；分差超过这个阈值，帮身多的判"身强"，耗身多的判"身弱"。这张命盘的分差是${diff}，${Math.abs(a.bangScore-a.haoScore)<a.total*0.15?'没有超过':'超过了'}15%这道线，所以判定为<b>${a.verdict}</b>。</div></div>
+    <div class="modal-caveat">这套"扶抑法"是简化过的量化版本，真实命理还会结合月令的调候（寒暖燥湿）、通根深浅、干支是否被冲合等更细的因素，同一张命盘不同流派的判断有时会不完全一致，这里的结果仅供参考。</div>
+  `;
+  document.getElementById('yongModal').classList.add('show');
+}
+
+function openYongModal(elem, a){
   const d = YONG_DETAIL[elem];
   if(!d) return;
+  let whyHtml = '';
+  if(a){
+    if(a.yongCase==='shenqiang'){
+      whyHtml = `<div class="modal-sec"><div class="modal-h">为什么选它</div><div class="modal-p">这张命盘判定为身强——日主本身根基已经很够了，传统扶抑法讲"强则抑之"，思路是从食伤、财星、官杀这三行里，挑出命盘中力量最旺的一行做用神，因为这一行不光能对日主起到宣泄、克制的作用，本身在盘里也有根基，用起来才有实际效果，不是挑一个只在理论上"该用"却没什么力量的空架子。这三行在这张命盘里的分数分别是：${(a.candidateDetail||[]).map(c=>`${c.name}${c.score.toFixed(1)}分`).join('、')}——${a.yongElemName}最高，所以选它。</div></div>`;
+    } else if(a.yongCase==='shenruo_youyin'){
+      const yinScore = a.yinScore!==undefined ? a.yinScore.toFixed(1) : '';
+      whyHtml = `<div class="modal-sec"><div class="modal-h">为什么选它</div><div class="modal-p">这张命盘判定为身弱——日主根基不够，传统扶抑法讲"弱则扶之"，第一顺位是找"生我"的印星来补，因为印星能从根本上补足日主的力量。这张命盘里印星（${a.yongElemName}）的分数是${yinScore}分，本身在地支有根，不是空中楼阁，用起来才有实际效果，所以直接选它做用神。</div></div>`;
+    } else if(a.yongCase==='shenruo_wuyin'){
+      whyHtml = `<div class="modal-sec"><div class="modal-h">为什么选它</div><div class="modal-p">这张命盘判定为身弱，按顺序本该优先选印星来补，但这张命盘里印星的分数几乎是0，传统上叫"印星虚浮"——印星自己都立不住脚，没有余力再去生助日主，用了也没什么实际效果。所以退而求其次，改选日主自己的本气——也就是比肩、劫财这一行（跟日主同一个五行），让日主靠自己的力量站稳，这也是一种"自立自强"的思路。</div></div>`;
+    } else if(a.yongCase==='zhonghe'){
+      whyHtml = `<div class="modal-sec"><div class="modal-h">为什么没有单一用神</div><div class="modal-p">这张命盘帮身、耗身两边的分数很接近（差距没超过总分的15%），传统上叫"中和"——日主本身既不算特别强也不算特别弱，这种情况下用神更多要看"调候"（出生季节的寒暖燥湿是否需要调节）这类更细的因素，不是这套简化扶抑法能直接给出单一答案的范围，这里就不勉强指定一个用神了。</div></div>`;
+    }
+  }
   document.getElementById('modalTitle').textContent = `用神「${elem}」怎么用`;
   document.getElementById('modalBody').innerHTML = `
+    ${whyHtml}
     <div class="modal-sec"><div class="modal-h">大运流年</div><div class="modal-p">${d.ganzhi}</div></div>
     <div class="modal-sec"><div class="modal-h">方位与颜色</div><div class="modal-p">${d.dir}</div></div>
     <div class="modal-sec"><div class="modal-h">行业倾向</div><div class="modal-p">${d.field}</div></div>
@@ -3112,14 +3155,18 @@ function renderStrength(r, a){
       <div class="bar-track"><div class="bar-fill hao" style="width:${haoPct}%"></div></div>
       <div class="bar-val">${a.haoScore.toFixed(1)}</div>
     </div>
-    <div class="verdict-line">日主<span class="tag">${a.verdict}</span></div>
+    <div class="verdict-line">日主<span class="tag strength-click">${a.verdict}<span class="yong-hint">点击查看计算 ›</span></span></div>
     <div class="yong-line">${a.yongElemName ? `用神：<span class="yong-click" data-elem="${a.yongElemName}">${a.yongElemName}<span class="yong-hint">点击查看解读 ›</span></span>` : '用神：需结合调候等因素另行判断'}</div>
-    <div class="reason-line">${a.yongReason}</div>
+    <div class="reason-line reason-click">${a.yongReason}</div>
     <div class="elem-row">${elemChips}</div>
   `;
 
   const link = body.querySelector('.yong-click');
-  if(link){ link.onclick = ()=> openYongModal(link.dataset.elem); }
+  if(link){ link.onclick = ()=> openYongModal(link.dataset.elem, a); }
+  const strengthTag = body.querySelector('.strength-click');
+  if(strengthTag){ strengthTag.onclick = ()=> openStrengthModal(r, a); }
+  const reasonLine = body.querySelector('.reason-click');
+  if(reasonLine && a.yongElemName){ reasonLine.onclick = ()=> openYongModal(a.yongElemName, a); }
 }
 
 /* ============================================================
