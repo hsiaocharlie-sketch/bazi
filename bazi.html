@@ -219,6 +219,10 @@
     cursor:pointer;text-decoration:underline;text-decoration-style:dotted;
     text-underline-offset:2px;
   }
+  .dl-click, .root-click, .deshi-click{
+    cursor:pointer;text-decoration:underline;text-decoration-style:dotted;
+    text-underline-offset:2px;
+  }
   .guiren-row{
     display:flex;justify-content:space-between;align-items:center;
     padding:9px 2px;font-size:12.5px;
@@ -265,6 +269,7 @@
     font-size:11px;color:var(--vermillion-dim);font-weight:700;
     letter-spacing:.04em;
   }
+  .mg-gz-click, .mg-h-click{cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:2px;}
   .pillar{
     text-align:center;
     padding:0 4px;
@@ -2515,6 +2520,27 @@ function computeMingGong(r){
   return {gan:gongGan, zhi:gongZhi};
 }
 
+function openMingGongCalcModal(r, mg){
+  const bracketStartDeg = norm360(315 + 30*r.bracket);
+  const degIntoBracket = norm360(r.solarLong - bracketStartDeg);
+  const pastZhongQi = degIntoBracket >= 15;
+  const gongBracket = pastZhongQi ? (r.bracket+1)%12 : r.bracket;
+  const gongMonthZhi = (gongBracket+2)%12;
+  const monthCount = zhiToGongCount(gongMonthZhi);
+  const hourCount = zhiToGongCount(r.hour.zhi);
+  const sum = monthCount + hourCount;
+  const gongNum = sum<14 ? 14-sum : 26-sum;
+  document.getElementById('modalTitle').textContent = '命宫怎么算';
+  document.getElementById('modalBody').innerHTML = `
+    <div class="modal-sec"><div class="modal-h">第一步：定"生月"（按中气分界，不是节气）</div><div class="modal-p">命宫用的月份分界，是"中气"（比如雨水、春分这些），不是我们排八字月柱用的"节"（比如立春、惊蛰）——两者相差半个月左右。这张命盘出生时，已经过了本节气月的中气点了吗？${pastZhongQi ? '过了，所以命宫的月份要往后推一个月来算' : '还没过，命宫的月份跟排八字月柱用的是同一个月'}，命宫用的月支是${ZHI[gongMonthZhi]}。</div></div>
+    <div class="modal-sec"><div class="modal-h">第二步：查生月、生时对应的数字</div><div class="modal-p">传统命宫查法有一张固定的数字表，从寅开始数1，顺数到丑是12（寅1卯2辰3巳4午5未6申7酉8戌9亥10子11丑12）。这张命盘生月${ZHI[gongMonthZhi]}对应${monthCount}，生时${ZHI[r.hour.zhi]}对应${hourCount}，两个数字相加是${sum}。</div></div>
+    <div class="modal-sec"><div class="modal-h">第三步：用14或26减，换算出命宫地支</div><div class="modal-p">口诀是"数不过十四就用十四减，超过十四就用二十六减"——这张命盘两数之和是${sum}，${sum<14?`没超过14，用14减去${sum}`:`超过或等于14，用26减去${sum}`}，得到${gongNum}，换算回地支就是<b>${ZHI[mg.zhi]}</b>。</div></div>
+    <div class="modal-sec"><div class="modal-h">第四步：命宫的天干</div><div class="modal-p">命宫地支定下来之后，天干用跟推算月柱天干同一套"五虎遁"方法——按这张命盘的年干${GAN[r.year.gan]}往下推，命宫地支${ZHI[mg.zhi]}对应的天干是<b>${GAN[mg.gan]}</b>，所以命宫是<b>${GAN[mg.gan]}${ZHI[mg.zhi]}</b>。</div></div>
+    <div class="modal-caveat">命宫的算法在各家命理书里流传的口诀基本一致，是比较标准、没有太大争议的传统查法。</div>
+  `;
+  document.getElementById('yongModal').classList.add('show');
+}
+
 // 命宫十神的解读——命宫讲的是本心、骨子里的执念和天生的底色，跟四柱各自对应
 // 具体人生阶段、具体人事领域不是一回事。每个十神都写成一段兼顾光明面和阴影面
 // 的完整描述，不再按喜忌只讲一半；喜忌改成用来点出"哪一面更容易占上风"
@@ -2568,6 +2594,23 @@ function buildMingGongLayer2(mg, dayGanIdx, xiCamp, facts){
     const lean = xj==='喜' ? '（这一世此项以顺、以成为主）' : '（这一世此项更容易被阴影面拖住，需要多留意）';
     return `<b>${sg}</b>${lean}：${text}`;
   });
+}
+
+function openMingGongLayer2CalcModal(r, mg, dayGanIdx, xiCamp){
+  const hiddenList = BRANCH_HIDDEN[mg.zhi];
+  const qiLabels = ['本气','中气','余气'];
+  const detail = hiddenList.map((stemIdx,i)=>{
+    const sg = tenGodOf(dayGanIdx, stemIdx);
+    const xj = SHISHEN_CAMP[sg]===xiCamp ? '喜' : '忌';
+    return `${qiLabels[i]}${GAN[stemIdx]}（${sg}·${xj}）`;
+  }).join('、');
+  document.getElementById('modalTitle').textContent = '终身格局怎么算';
+  document.getElementById('modalBody').innerHTML = `
+    <div class="modal-sec"><div class="modal-h">判断依据</div><div class="modal-p">"终身格局"用的是命宫<b>地支</b>里藏的全部天干——不是只取本气一个字（这点跟前面"格局"卡片只取月支本气不一样），而是本气、中气、余气但凡这个地支里藏了的，全都拿出来逐个换算成十神。每一个藏干代表你能力、天分、成就这个层面的一个侧面；藏的字越多，代表这方面的天分越呈现出多面性、不是单一路子。</div></div>
+    <div class="modal-sec"><div class="modal-h">这张命盘</div><div class="modal-p">命宫地支是${ZHI[mg.zhi]}，里面藏着：${detail}。这几个十神各自对应的解读文字，就是上面"终身格局"这块列出来的内容，喜/忌决定的是"这一世这项天分更容易顺着发挥，还是更容易被阴影面拖住"。</div></div>
+    <div class="modal-caveat">这一层讲的是能力和天分的底色，是命宫解读的第二层；命宫本身怎么算出天干地支，是另一个问题，点命宫的干支可以单独看那部分的推算过程。</div>
+  `;
+  document.getElementById('yongModal').classList.add('show');
 }
 
 // 命宫本身跟命盘四柱（不含命宫自己）的冲/合/刑关系
@@ -3482,6 +3525,44 @@ function computeGeJu(r, a){
   const xj = SHISHEN_CAMP[sg]===xiCamp ? '喜' : '忌';
   return {sg, name:GEJU_NAME[sg], touGan, xj, monthMainStem};
 }
+function openDeLingModal(r, dl){
+  const dayElem = Math.floor(r.day.gan/2);
+  const monthElem = ZHI_ELEM[r.month.zhi];
+  document.getElementById('modalTitle').textContent = '得令／失令怎么判断';
+  document.getElementById('modalBody').innerHTML = `
+    <div class="modal-sec"><div class="modal-h">判断依据</div><div class="modal-p">拿日主的五行，跟月支的五行比较五行生克关系——月支代表出生时节，是四柱里力量最重的一个位置："当令"就是说这个时节的气正好对日主有利。具体分五种情况：月支五行"生"日主、或者跟日主"同五行"，都算<b>得令</b>；月支五行"克"日主、日主"生"月支（被泄）、日主"克"月支（要花力气去克），这三种都算<b>失令</b>。</div></div>
+    <div class="modal-sec"><div class="modal-h">这张命盘</div><div class="modal-p">日主是${GAN[r.day.gan]}${ELEM_NAMES5[dayElem]}，月支是${ZHI[r.month.zhi]}${ELEM_NAMES5[monthElem]}——两者的关系是"${dl.label}"，所以判定为<b>${dl.verdict}</b>。</div></div>
+    <div class="modal-caveat">得令失令是判断日主旺衰最重要的一条参考，但不是唯一依据，还要结合强根、得势，以及四柱本身天干地支的力量一起看，我们旺衰卡片里的"扶抑法"计算已经把这些都综合进去了。</div>
+  `;
+  document.getElementById('yongModal').classList.add('show');
+}
+
+function openStrongRootModal(r, rootCount){
+  const rootZhi = STRONG_ROOT_ZHI[r.day.gan];
+  const branches = [['年支',r.year.zhi],['月支',r.month.zhi],['日支',r.day.zhi],['时支',r.hour.zhi]];
+  const hits = branches.filter(([l,z])=>z===rootZhi).map(([l])=>l);
+  document.getElementById('modalTitle').textContent = '强根怎么算';
+  document.getElementById('modalBody').innerHTML = `
+    <div class="modal-sec"><div class="modal-h">判断依据</div><div class="modal-p">每个日主天干，在十二长生里都有一个能量最强的地支——阳干是"临官"，阴干是"帝旺"，传统上把这个地支叫日主的"强根"（比如日主是甲，强根就是寅）。查这张命盘的四个地支里，有没有出现这个字，出现几次，就是几强根——根越多，日主自身的底子越扎实，哪怕天干本身看着弱，也可能因为地支扎根深而实际不弱。</div></div>
+    <div class="modal-sec"><div class="modal-h">这张命盘</div><div class="modal-p">日主是${GAN[r.day.gan]}，对应的强根地支是${ZHI[rootZhi]}。四柱地支里${hits.length ? `${hits.join('、')}命中了这个字` : '没有出现这个字'}，所以是<b>${rootCount}强根</b>。</div></div>
+    <div class="modal-caveat">强根只统计"临官/帝旺"这个最强的一个字，比十二长生里其他阶段（比如冠带、长生）的根基更扎实、更直接，是判断日主底子的一个快速参考。</div>
+  `;
+  document.getElementById('yongModal').classList.add('show');
+}
+
+function openDeShiModal(r, deshi){
+  const dayGanIdx = r.day.gan;
+  const positions = [['年干', r.year.gan], ['月干', r.month.gan], ['时干', r.hour.gan]];
+  const detail = positions.map(([label, gan])=>`${label}${GAN[gan]}（${tenGodOf(dayGanIdx, gan)}）`).join('、');
+  document.getElementById('modalTitle').textContent = '得势怎么算';
+  document.getElementById('modalBody').innerHTML = `
+    <div class="modal-sec"><div class="modal-h">判断依据</div><div class="modal-p">只看年干、月干、时干这三个天干（日主自己不算），逐个算出对日主是什么十神——如果是比肩、劫财、正印、偏印这四个"帮身"类的十神，就算这个位置"帮着"日主，统计命中了几个位置，就是"得势"的具体内容。得势越多，代表日主在天干层面得到的助力越多。</div></div>
+    <div class="modal-sec"><div class="modal-h">这张命盘</div><div class="modal-p">年干、月干、时干分别是：${detail}。其中${deshi.length ? `${deshi.join('、')}属于帮身类十神，判定为得势` : '没有一个属于比肩、劫财、正印、偏印这四类，判定为无得势'}。</div></div>
+    <div class="modal-caveat">得势看的是天干层面的助力，跟"强根"看地支、"得令"看月支是三个不同的角度，三者合起来才是判断日主旺衰比较完整的参考框架。</div>
+  `;
+  document.getElementById('yongModal').classList.add('show');
+}
+
 function openGeJuCalcModal(r, geju){
   const monthMainStem = BRANCH_HIDDEN[r.month.zhi][0];
   const specialNote = (geju.sg==='比肩' || geju.sg==='劫财')
@@ -3827,11 +3908,14 @@ document.getElementById('goBtn').onclick = function(){
   const deshi = computeDeShi(r);
   const cs = computeChangSheng(r);
   document.getElementById('delingLine').innerHTML = `
-    <div>${dl.label}－<span class="${dl.verdict==='得令'?'dl-good':'dl-bad'}">${dl.verdict}</span></div>
-    <div>${rootCount}强根</div>
-    <div>得势：${deshi.length?deshi.join('、'):'无'}</div>
+    <div class="dl-click">${dl.label}－<span class="${dl.verdict==='得令'?'dl-good':'dl-bad'}">${dl.verdict}</span></div>
+    <div class="root-click">${rootCount}强根</div>
+    <div class="deshi-click">得势：${deshi.length?deshi.join('、'):'无'}</div>
     <div>十二长生：<span class="cs-click" data-pos="year">年支${cs.year}</span> · <span class="cs-click" data-pos="month">月支${cs.month}</span> · <span class="cs-click" data-pos="day">日支${cs.day}</span> · <span class="cs-click" data-pos="hour">时支${cs.hour}</span></div>
   `;
+  document.querySelector('.dl-click').onclick = ()=> openDeLingModal(r, dl);
+  document.querySelector('.root-click').onclick = ()=> openStrongRootModal(r, rootCount);
+  document.querySelector('.deshi-click').onclick = ()=> openDeShiModal(r, deshi);
   document.querySelectorAll('.cs-click').forEach(el=>{
     el.onclick = ()=>{
       const pos = el.dataset.pos;
@@ -3957,14 +4041,14 @@ document.getElementById('goBtn').onclick = function(){
   const mgLayer2Lines = buildMingGongLayer2(mg, dayGanIdx, mgXiCamp, facts);
   const mgLayer3 = buildMingGongLayer3(r, mg, a, facts);
   document.getElementById('minggongLine').innerHTML = `
-    <div>命宫　<span class="mg-gz">${GAN[mg.gan]}${ZHI[mg.zhi]}</span>　<b>${mgSg}·${mgXj}</b>　·　纳音${nayinOf(mgIdx60)}</div>
+    <div>命宫　<span class="mg-gz mg-gz-click">${GAN[mg.gan]}${ZHI[mg.zhi]}</span>　<b>${mgSg}·${mgXj}</b>　·　纳音${nayinOf(mgIdx60)}</div>
     <div class="mg-section">
       <div class="mg-h">心性本心</div>
       <div class="mg-text">${mgLayer1}</div>
       <div class="mg-text">${mgZhiText}</div>
     </div>
     <div class="mg-section">
-      <div class="mg-h">终身格局</div>
+      <div class="mg-h mg-h-click">终身格局</div>
       ${mgLayer2Lines.map(t=>`<div class="mg-text">${t}</div>`).join('')}
     </div>
     <div class="mg-section">
@@ -3972,6 +4056,8 @@ document.getElementById('goBtn').onclick = function(){
       <div class="mg-text">${mgLayer3}</div>
     </div>
   `;
+  document.querySelector('.mg-gz-click').onclick = ()=> openMingGongCalcModal(r, mg);
+  document.querySelector('.mg-h-click').onclick = ()=> openMingGongLayer2CalcModal(r, mg, dayGanIdx, mgXiCamp);
 
   const dayun = computeDaYun(r, y, m, d, hh, mi, isMale);
   renderDaYun(r, a, dayun, facts, y, m, d, hh, mi);
