@@ -429,6 +429,35 @@
     cursor:pointer;
   }
   .dayun-row:last-of-type{border-bottom:none;}
+  .dayun-row.dy-best{background:rgba(176,141,79,.1);}
+  .dayun-row.dy-worst{background:rgba(166,53,44,.08);}
+  .dy-badge{
+    display:inline-block;font-size:9px;font-weight:700;padding:1px 5px;
+    border-radius:8px;margin-top:2px;letter-spacing:.03em;
+  }
+  .dy-badge.best{background:var(--brass);color:#1c1408;}
+  .dy-badge.worst{background:var(--vermillion);color:#f2ede0;}
+  .grade-row{
+    display:flex;align-items:center;gap:14px;margin-bottom:16px;
+    padding-bottom:16px;border-bottom:1px solid rgba(176,141,79,.25);
+  }
+  .grade-badge{
+    flex:none;width:64px;height:64px;border-radius:50%;
+    display:flex;align-items:center;justify-content:center;
+    font-family:"Noto Serif SC",serif;font-weight:900;font-size:17px;
+    border:2px solid var(--brass);color:var(--brass);letter-spacing:-1px;
+  }
+  .grade-badge.high{border-color:var(--brass);color:var(--brass);background:rgba(176,141,79,.12);}
+  .grade-badge.mid{border-color:var(--text-pale);color:var(--text-pale);}
+  .grade-badge.low{border-color:var(--vermillion-dim);color:var(--vermillion-dim);}
+  .grade-text{flex:1;}
+  .grade-text .gt-title{font-family:"Noto Serif SC",serif;font-weight:700;font-size:15px;color:#f2ede0;margin-bottom:4px;}
+  .grade-text .gt-sub{font-size:11.5px;color:var(--text-dim);line-height:1.6;}
+  .summary-narrative .sn-block{margin-bottom:14px;}
+  .summary-narrative .sn-block:last-child{margin-bottom:0;}
+  .summary-narrative .sn-h{font-size:12.5px;font-weight:700;color:var(--brass-dim);margin-bottom:6px;}
+  .summary-narrative .sn-p{font-size:12.5px;color:var(--text-pale);line-height:1.85;}
+  .summary-narrative .sn-p b{color:var(--vermillion-dim);}
   .dy-age{font-size:11.5px;color:var(--text-pale);line-height:1.4;}
   .dy-year{font-size:9.5px;color:var(--text-dim);}
   .dy-gz{
@@ -630,6 +659,11 @@
       <div class="pillars" id="pillars"></div>
       <div class="deling-line" id="delingLine"></div>
       <div class="minggong-line" id="minggongLine"></div>
+    </div>
+
+    <div class="section-card" id="summaryCard">
+      <div class="section-title">命盘总评</div>
+      <div id="summaryBody"></div>
     </div>
 
     <div class="section-card" id="strengthCard">
@@ -2423,6 +2457,27 @@ function computeDaYun(r, y, m, d, hour, min, isMale){
   };
 }
 
+// 给每一步大运打分：天干喜=+1忌=-1，地支本气喜=+1忌=-1，冲合再加减——
+// 分数越高越顺、越低越难熬，用来直接找出这辈子最好和最差的十年，不再只是平铺罗列
+function computeDaYunScores(r, a, dayun){
+  const dayGanIdx = r.day.gan;
+  const xiCamp = a.bangScore >= a.haoScore ? '耗身' : '帮身';
+  const scored = dayun.periods.map(p=>{
+    const sg = tenGodOf(dayGanIdx, p.gan);
+    const xj = SHISHEN_CAMP[sg]===xiCamp ? '喜' : '忌';
+    const zhiMainStem = BRANCH_HIDDEN[p.zhi][0];
+    const zhiSg = tenGodOf(dayGanIdx, zhiMainStem);
+    const zhiXj = SHISHEN_CAMP[zhiSg]===xiCamp ? '喜' : '忌';
+    const notes = computeChongHe(p.zhi, r, dayGanIdx, xiCamp);
+    let score = (xj==='喜'?1:-1) + (zhiXj==='喜'?1:-1);
+    notes.forEach(n=>{ score += (n.relation==='合' ? 0.5 : -0.5); });
+    return {period:p, sg, xj, zhiSg, zhiXj, notes, score};
+  });
+  const best = scored.reduce((a,b)=> b.score>a.score ? b : a);
+  const worst = scored.reduce((a,b)=> b.score<a.score ? b : a);
+  return {scored, best, worst};
+}
+
 /* ============================================================
    命宫：用"数字速查法"（月支数+时支数，14/26数相减）定地支，
    再用五虎遁定天干。命宫的"月"以中气为准（不是节），跟排八字
@@ -3501,6 +3556,9 @@ function renderDaYun(r, a, dayun, facts, birthY, birthM, birthD, birthHour, birt
   // 命盘本身的十神占用情况，用来判断流年是否补上组合缺的那一块
   const natalOcc = collectShishenOccurrences(r);
 
+  // 打分找出这辈子最好和最差的十年
+  const dyScores = computeDaYunScores(r, a, dayun);
+
   const header = document.createElement('div');
   header.className='dayun-header';
   header.innerHTML = `${dayun.forward?'顺排':'逆排'} · 起运 <b class="qiyun-click">${dayun.qiyunYears}岁${dayun.qiyunMonths}个月${dayun.qiyunDays}天</b>（约${dayun.startYear}年）`;
@@ -3518,9 +3576,11 @@ function renderDaYun(r, a, dayun, facts, birthY, birthM, birthD, birthHour, birt
     const midAge = p.startAgeYears+5;
 
     const row = document.createElement('div');
-    row.className='dayun-row';
+    const isBest = p.startAgeYears === dyScores.best.period.startAgeYears;
+    const isWorst = p.startAgeYears === dyScores.worst.period.startAgeYears && dyScores.worst.score < dyScores.best.score;
+    row.className='dayun-row' + (isBest?' dy-best':'') + (isWorst?' dy-worst':'');
     row.innerHTML = `
-      <div class="dy-age">${p.startAgeYears}-${endAge}岁<div class="dy-year">${p.startYear}-${endYear}</div></div>
+      <div class="dy-age">${p.startAgeYears}-${endAge}岁<div class="dy-year">${p.startYear}-${endYear}</div>${isBest?'<div class="dy-badge best">人生巅峰</div>':''}${isWorst?'<div class="dy-badge worst">最低谷</div>':''}</div>
       <div class="dy-gz">${GAN[p.gan]}${ZHI[p.zhi]}</div>
       <div class="dy-tags"><span class="tag-sg sg-click">${sg}</span><span class="xj ${xj==='喜'?'xi':'ji'}">${xj}</span>${notes.length?`<div class="dy-notes">${notes.map(shortNoteText).join('，')}</div>`:''}</div>
       <div class="dy-arrow">›</div>
@@ -3562,6 +3622,89 @@ function renderDaYun(r, a, dayun, facts, birthY, birthM, birthD, birthHour, birt
     container.appendChild(row);
     container.appendChild(panel);
   });
+}
+
+/* ============================================================
+   命盘总评 + 命格评级：把已经算好的格局、大运打分、事业倾向揉成一段直接的结论，
+   不再是拆散的碎片信息
+   ============================================================ */
+function computeMingGeGrade(geju, dyScores){
+  let score = 0;
+  if(geju.touGan) score += 1;
+  if(geju.xj==='喜') score += 1;
+  const positiveDecades = dyScores.scored.filter(s=>s.score>0).length;
+  const negativeDecades = dyScores.scored.filter(s=>s.score<0).length;
+  const decadeBalance = positiveDecades - negativeDecades;
+  score += decadeBalance * 0.3;
+
+  let tier, tierClass;
+  if(score >= 3){ tier='上等命'; tierClass='high'; }
+  else if(score >= 1.5){ tier='中上等命'; tierClass='high'; }
+  else if(score >= 0){ tier='中等命'; tierClass='mid'; }
+  else if(score >= -1.5){ tier='中下等命'; tierClass='mid'; }
+  else { tier='下等命'; tierClass='low'; }
+
+  return {tier, tierClass, score, positiveDecades, negativeDecades, decadeBalance};
+}
+
+function buildOverallSummary(r, a, geju, cd, dyScores){
+  const dayGanName = GAN[r.day.gan];
+  const dayElemName = ['木','火','土','金','水'][Math.floor(r.day.gan/2)];
+
+  const openLine = `日主${dayGanName}${dayElemName}，${a.verdict}，格局是${geju.name}——这张命盘的底色，是${cd.lean==='偏创业'?'敢闯敢拼、不安于现状':cd.lean==='偏打工'?'求稳务实、按部就班':'进退皆宜、弹性很大'}的路子。`;
+
+  const early = dyScores.scored.slice(0,2);
+  const earlyAvg = early.reduce((s,x)=>s+x.score,0)/early.length;
+  const earlyText = earlyAvg>0.5
+    ? `早年运势顺，${early[0].period.startAgeYears}到${early[1].period.startAgeYears+9}岁这段基础打得扎实，起步条件不差。`
+    : earlyAvg<-0.5
+    ? `早年偏辛苦，${early[0].period.startAgeYears}到${early[1].period.startAgeYears+9}岁这段容易吃苦、走弯路，但这段辛苦是在为后面攒底气。`
+    : `早年运势平稳，没有大起大落，是扎根打基础的阶段。`;
+
+  const mid = dyScores.scored.slice(2,6);
+  const midAvg = mid.reduce((s,x)=>s+x.score,0)/mid.length;
+  const midText = midAvg>0.5
+    ? `中年是这辈子最出成绩的阶段，运势整体顺，该拼的时候拼得动，借得上力。`
+    : midAvg<-0.5
+    ? `中年阶段压力集中，事业感情都容易遇到坎，这是这辈子最需要谨慎经营的时期。`
+    : `中年运势起伏交替，顺境和难关都有，不算最出彩，也不算最难熬。`;
+
+  const late = dyScores.scored.slice(-2);
+  const lateAvg = late.reduce((s,x)=>s+x.score,0)/late.length;
+  const lateText = lateAvg>0.5
+    ? `晚年运势好，是"越老越吃香"的命，容易在这个阶段收获认可和成果，能安享。`
+    : lateAvg<-0.5
+    ? `晚年阶段要多留意健康和财务储备，这段运势偏弱，年轻时攒的底子这时候能不能撑住是关键。`
+    : `晚年运势平稳，不算大富大贵，但也不至于晚景凄凉。`;
+
+  const best = dyScores.best, worst = dyScores.worst;
+  const peakText = `这辈子最好的十年是<b>${best.period.startAgeYears}-${best.period.startAgeYears+9}岁</b>（${GAN[best.period.gan]}${ZHI[best.period.zhi]}大运），是这张命盘运势的最高点——重大决定、放手一搏，该挑在这段时间。`;
+  const lowText = `最难熬的十年是<b>${worst.period.startAgeYears}-${worst.period.startAgeYears+9}岁</b>（${GAN[worst.period.gan]}${ZHI[worst.period.zhi]}大运），这段时间宜守不宜攻，重大决定尽量往前或往后挪，别硬撑着在这段时间搞大动作。`;
+
+  return {openLine, earlyText, midText, lateText, peakText, lowText};
+}
+
+function renderSummary(r, a, geju, cd, dyScores){
+  const grade = computeMingGeGrade(geju, dyScores);
+  const summary = buildOverallSummary(r, a, geju, cd, dyScores);
+  const body = document.getElementById('summaryBody');
+  body.innerHTML = `
+    <div class="grade-row">
+      <div class="grade-badge ${grade.tierClass}">${grade.tier.slice(0,2)}</div>
+      <div class="grade-text">
+        <div class="gt-title">${grade.tier}</div>
+        <div class="gt-sub">格局${geju.touGan?'透干':'不透干'}·${geju.xj} ／ 大运${grade.positiveDecades}步顺、${grade.negativeDecades}步逆 ／ 综合分 ${grade.score.toFixed(1)}</div>
+      </div>
+    </div>
+    <div class="summary-narrative">
+      <div class="sn-block"><div class="sn-p">${summary.openLine}</div></div>
+      <div class="sn-block"><div class="sn-h">早年</div><div class="sn-p">${summary.earlyText}</div></div>
+      <div class="sn-block"><div class="sn-h">中年</div><div class="sn-p">${summary.midText}</div></div>
+      <div class="sn-block"><div class="sn-h">晚年</div><div class="sn-p">${summary.lateText}</div></div>
+      <div class="sn-block"><div class="sn-h">这辈子的高点和低点</div><div class="sn-p">${summary.peakText}</div><div class="sn-p" style="margin-top:8px;">${summary.lowText}</div></div>
+    </div>
+    <div class="modal-caveat" style="margin-top:12px;padding-top:12px;">评级是把格局清浊喜忌、九步大运的顺逆分布这两项已经算出来的东西，压缩成一个分数——分数越高，命盘整体走势越顺；这不是玄学打分，是对上面已经展开过的具体信息做的一次汇总判断，展开的细节仍然是判断的依据。</div>
+  `;
 }
 
 document.getElementById('goBtn').onclick = function(){
@@ -3766,6 +3909,11 @@ document.getElementById('goBtn').onclick = function(){
 
   const dayun = computeDaYun(r, y, m, d, hh, mi, isMale);
   renderDaYun(r, a, dayun, facts, y, m, d, hh, mi);
+
+  const geju_ = computeGeJu(r, a);
+  const cd_ = computeCareerDirection(r, a);
+  const dyScores_ = computeDaYunScores(r, a, dayun);
+  renderSummary(r, a, geju_, cd_, dyScores_);
 
   const pad=n=>String(n).padStart(2,'0');
   const lunar = solarToLunar(y,m,d);
