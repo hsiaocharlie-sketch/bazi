@@ -1508,7 +1508,7 @@ function ageToFlowingBracket(age){
   return '中老年';
 }
 
-function openShishenModal(sg, xj, age, contextLabel, facts, notes, romanceHits, dayunSplit, yearCombos){
+function openShishenModal(sg, xj, age, contextLabel, facts, notes, romanceHits, dayunSplit, yearCombos, healthRisks, eventType){
   const bracket = ageToFlowingBracket(age);
   const generalText = annotateText(getFlowingShishenText(bracket, sg, xj), facts);
   const familyTextRaw = getFlowingFamilyText(bracket, sg, xj);
@@ -1522,6 +1522,15 @@ function openShishenModal(sg, xj, age, contextLabel, facts, notes, romanceHits, 
   const combosHtml = (yearCombos && yearCombos.length)
     ? `<div class="modal-sec"><div class="modal-h">流年组合提示</div>${yearCombos.map(c=>`<div class="combo-item"><div class="combo-name">${c.name}</div><div class="stext">这个组合命盘本身只占了一部分，这一年的流年干支正好补上缺的那部分，传统上认为是这个组合被"冲动"、真正触发发挥作用的一年——${c.text}</div></div>`).join('')}</div>`
     : '';
+  const eventHtml = eventType
+    ? `<div class="modal-sec"><div class="modal-h">这十年容易发生的事</div><div class="modal-p">${eventType}</div></div>`
+    : '';
+  const healthHtml = (healthRisks && healthRisks.length)
+    ? `<div class="modal-sec"><div class="modal-h">健康风险期</div>${healthRisks.map(hr=>{
+        const label = hr.type==='strong' ? `${ELEM_NAMES5[hr.elem]}继续偏旺` : `${ELEM_NAMES5[hr.elem]}被进一步压制`;
+        return `<div class="modal-p" style="margin-bottom:8px;"><b>${WUXING_ORGAN[hr.elem]}</b>（${label}）：${WUXING_HEALTH_TEXT[hr.type][hr.elem]}</div>`;
+      }).join('')}</div>`
+    : '';
   const generalLabel = dayunSplit ? `前五年（${dayunSplit.startAge}-${dayunSplit.startAge+4}岁）· 天干${sg}·${xj}` : `${contextLabel} · 约${age}岁 · ${bracket} · 整体运势`;
   const splitHtml = dayunSplit ? `
     <div class="modal-sec"><div class="modal-h">后五年（${dayunSplit.startAge+5}-${dayunSplit.startAge+9}岁）· 地支本气${dayunSplit.zhiSg}·${dayunSplit.zhiXj}</div>
@@ -1531,9 +1540,11 @@ function openShishenModal(sg, xj, age, contextLabel, facts, notes, romanceHits, 
   document.getElementById('modalBody').innerHTML = `
     <div class="modal-sec"><div class="modal-h">${dayunSplit ? contextLabel : ''}${dayunSplit ? '<br>' : ''}${generalLabel}</div><div class="modal-p">${generalText}</div></div>
     ${splitHtml}
+    ${eventHtml}
     ${familyText ? `<div class="modal-sec"><div class="modal-h">婚姻家庭</div><div class="modal-p">${familyText}</div></div>` : ''}
     ${romanceHtml}
     ${combosHtml}
+    ${healthHtml}
     ${notesHtml}
     <div class="modal-caveat">喜/忌是相对这份命盘"旺衰"判断而言的：喜神代表这段时间相对顺、容易借上力；忌神代表这段时间消耗压力更明显，需要多留意调整，不是绝对的吉凶断言。${dayunSplit ? '前五年主要看大运天干的力量，后五年主要看大运地支本气的力量，这是命理里常见的一种细分读法，不代表前五年地支完全不起作用、后五年天干完全消失，只是主次有别。' : '年龄分段是粗略近似，仅供参考。'}</div>
   `;
@@ -3273,6 +3284,49 @@ function computeWuxingHealth(a){
   });
   return {strong, weak, specialWarnings};
 }
+
+const LONGTERM_DIR_TEXT = {
+  0:'长期来看，往东边方向发展、定居更容易借上力——木对应东方，长年生活在这个方向，运势的底子会更稳。',
+  1:'长期来看，往南边方向发展、定居更容易借上力——火对应南方，长年生活在这个方向，运势的底子会更稳。',
+  2:'长期来看，往家乡本地或者中部地区发展更容易借上力——土没有固定方向，代表的是"守中、不折腾"，频繁大迁移反而不利，扎根一处比到处漂更适合你。',
+  3:'长期来看，往西边方向发展、定居更容易借上力——金对应西方，长年生活在这个方向，运势的底子会更稳。',
+  4:'长期来看，往北边方向发展、定居更容易借上力——水对应北方，长年生活在这个方向，运势的底子会更稳。'
+};
+const EVENT_TYPE_TEXT = {
+  '比肩':{xi:'这十年适合合伙、找人搭伙做事，人脉资源会主动靠拢过来。', ji:'这十年容易被同辈、朋友分薄资源，合伙、借贷要格外谨慎，防着被拖累。'},
+  '劫财':{xi:'这十年适合抱团做大事，敢想敢拼容易有意外收获。', ji:'这十年破财风险高，容易因为讲义气、冲动决策在钱财上吃亏，防小人。'},
+  '食神':{xi:'这十年福气厚、心态松弛，适合享受生活、生育添丁，才艺也容易被人赏识。', ji:'这十年容易懒散拖延，该拼的时候提不起劲，机会容易被自己耗掉。'},
+  '伤官':{xi:'这十年才华外露，适合创作、突破常规，容易闯出名气。', ji:'这十年容易招惹口舌是非、跟权威起冲突，官司、职场摩擦风险偏高，管住嘴管住脾气。'},
+  '正财':{xi:'这十年财运稳，适合置产、稳健理财，靠踏实积累就能看到成果。', ji:'这十年容易为钱奔波却回报有限，投资要格外保守，别把身家压上去。'},
+  '偏财':{xi:'这十年偏财运旺，适合投资、拓展副业，人脉带来的机会多。', ji:'这十年财来财去留不住，容易有意外开销或者被人情世故牵着走破财。'},
+  '正官':{xi:'这十年适合求职、晋升、考公考编，容易得到正式的认可和名分。', ji:'这十年压力大、责任重，容易因为规矩、上级或者官方事务感到束缚。'},
+  '七杀':{xi:'这十年魄力足、敢闯敢拼，适合竞争激烈的领域，容易靠实力打出一片天。', ji:'这十年压力极大，健康、官非、意外这几方面风险都偏高，凡事多留一分谨慎。'},
+  '正印':{xi:'这十年容易得贵人扶持，适合深造学习、考证考学，长辈缘也旺。', ji:'这十年容易过度依赖别人、缺乏主见，也可能被文书、合同类的事情绊住。'},
+  '偏印':{xi:'这十年适合钻研冷门技艺、独立做事，容易在专精领域有所突破。', ji:'这十年容易多想、心思重，人际关系上偏孤立，健康上也要留意肠胃和睡眠。'}
+};
+
+// 大运健康风险期：命盘本身偏旺的一行，大运又加码同一行 = 风险期（旺者更旺）；
+// 命盘本身偏弱的一行，大运带来克它的那一行 = 风险期（弱者更弱）；
+// 注意方向不能反——偏弱的行被大运"补"到，反而是缓解，不是风险
+function computeDaYunHealthRisk(natalHealth, dayunPeriods){
+  return dayunPeriods.map(p=>{
+    const stemElem = Math.floor(p.gan/2);
+    const zhiMainElem = Math.floor(BRANCH_HIDDEN[p.zhi][0]/2);
+    const risks = [];
+    natalHealth.strong.forEach(s=>{
+      if((stemElem===s.elem || zhiMainElem===s.elem) && !risks.some(x=>x.elem===s.elem)){
+        risks.push({elem:s.elem, type:'strong'});
+      }
+    });
+    natalHealth.weak.forEach(w=>{
+      const keElem = (w.elem+3)%5; // 克w.elem的元素（五行克序：木克土土克水水克火火克金金克木，即 E 被 (E+3)%5 克）
+      if((stemElem===keElem || zhiMainElem===keElem) && !risks.some(x=>x.elem===w.elem)){
+        risks.push({elem:w.elem, type:'weak'});
+      }
+    });
+    return {period:p, risks};
+  });
+}
 function renderHealth(a){
   const hw = computeWuxingHealth(a);
   const body = document.getElementById('healthBody');
@@ -3292,6 +3346,12 @@ function renderHealth(a){
     body.innerHTML = `<div class="health-item"><div class="health-p">这张命盘五行相对均衡，没有特别突出偏旺或偏弱的一行——从这套判断逻辑来看，是健康层面比较理想的状态，日常按一般养生原则作息即可。</div></div>`;
   } else {
     body.innerHTML = parts.join('') + `<div class="modal-caveat" style="margin-top:8px;padding-top:8px;">这套提示是把命理里的五行旺衰，对照中医"五行对应脏腑"的传统说法做的推演，不是医学诊断，身体有具体不适还是要以正规医疗检查和医生诊断为准，这里仅供日常养生参考。</div>`;
+  }
+  if(a.yongElem!==null){
+    const dirEl = document.createElement('div');
+    dirEl.className = 'health-item';
+    dirEl.innerHTML = `<div class="health-h">长期居住方位</div><div class="health-p">${LONGTERM_DIR_TEXT[a.yongElem]}</div>`;
+    body.appendChild(dirEl);
   }
 }
 
@@ -3559,6 +3619,10 @@ function renderDaYun(r, a, dayun, facts, birthY, birthM, birthD, birthHour, birt
   // 打分找出这辈子最好和最差的十年
   const dyScores = computeDaYunScores(r, a, dayun);
 
+  // 这辈子每一步大运的健康风险期
+  const natalHealth = computeWuxingHealth(a);
+  const dyHealthRisks = computeDaYunHealthRisk(natalHealth, dayun.periods);
+
   const header = document.createElement('div');
   header.className='dayun-header';
   header.innerHTML = `${dayun.forward?'顺排':'逆排'} · 起运 <b class="qiyun-click">${dayun.qiyunYears}岁${dayun.qiyunMonths}个月${dayun.qiyunDays}天</b>（约${dayun.startYear}年）`;
@@ -3586,9 +3650,11 @@ function renderDaYun(r, a, dayun, facts, birthY, birthM, birthD, birthHour, birt
       <div class="dy-arrow">›</div>
     `;
     const dyTagEl = row.querySelector('.sg-click');
+    const dyRisk = dyHealthRisks.find(x=>x.period.startAgeYears===p.startAgeYears);
+    const eventType = EVENT_TYPE_TEXT[sg] ? EVENT_TYPE_TEXT[sg][xj==='喜'?'xi':'ji'] : null;
     dyTagEl.onclick = (e)=>{
       e.stopPropagation();
-      openShishenModal(sg, xj, midAge, `大运 ${p.startAgeYears}-${endAge}岁（${p.startYear}-${endYear}）`, facts, notes, null, {startAge:p.startAgeYears, zhiSg, zhiXj});
+      openShishenModal(sg, xj, midAge, `大运 ${p.startAgeYears}-${endAge}岁（${p.startYear}-${endYear}）`, facts, notes, null, {startAge:p.startAgeYears, zhiSg, zhiXj}, null, dyRisk.risks, eventType);
     };
 
     const panel = document.createElement('div');
