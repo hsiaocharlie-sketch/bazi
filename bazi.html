@@ -775,20 +775,28 @@ const ELEM_NAMES5 = ['木','火','土','金','水'];
 function computeDeLing(r){
   const dayElem = Math.floor(r.day.gan/2);
   const monthElem = ZHI_ELEM[r.month.zhi];
-  let label, verdict;
+  let label, verdict, tier;
   if(monthElem===dayElem){
-    label = `${ELEM_NAMES5[dayElem]}比和`; verdict='得令';
+    label = `${ELEM_NAMES5[dayElem]}比和`; verdict='得令'; tier='旺';
   } else if((monthElem+1)%5===dayElem){
-    label = `${ELEM_NAMES5[monthElem]}生${ELEM_NAMES5[dayElem]}`; verdict='得令';
+    label = `${ELEM_NAMES5[monthElem]}生${ELEM_NAMES5[dayElem]}`; verdict='得令'; tier='相';
   } else if((monthElem+2)%5===dayElem){
-    label = `${ELEM_NAMES5[monthElem]}克${ELEM_NAMES5[dayElem]}`; verdict='失令';
+    label = `${ELEM_NAMES5[monthElem]}克${ELEM_NAMES5[dayElem]}`; verdict='失令'; tier='死';
   } else if((dayElem+2)%5===monthElem){
-    label = `${ELEM_NAMES5[dayElem]}克${ELEM_NAMES5[monthElem]}`; verdict='失令';
+    label = `${ELEM_NAMES5[dayElem]}克${ELEM_NAMES5[monthElem]}`; verdict='失令'; tier='囚';
   } else {
-    label = `${ELEM_NAMES5[dayElem]}生${ELEM_NAMES5[monthElem]}`; verdict='失令';
+    label = `${ELEM_NAMES5[dayElem]}生${ELEM_NAMES5[monthElem]}`; verdict='失令'; tier='休';
   }
-  return {label, verdict};
+  return {label, verdict, tier};
 }
+
+const WANGXIANGXIUQIUSI_TEXT = {
+  '旺':'"旺"是五级里分量最重的得令状态——当令之气就是日主本身，力量最直接、最强，是五个状态里对日主最有利的一种。',
+  '相':'"相"也是得令，但比"旺"少一层——当令之气是在"生"日主，日主借的是别人的力，不是自己本身当令，力量比"旺"稍逊一筹，仍然是偏有利的状态。',
+  '休':'"休"是失令状态里最轻的一种——日主把力量"送"给了当令之气（日主生当令），虽然不当令，但好歹不存在被克制的直接关系，只是退居二线，不算太差。',
+  '囚':'"囚"是失令状态，日主虽然去克当令之气，但因为对方正当令、气势旺，日主这股攻势容易变成"打不动还硬打"的虚耗，比"休"更不利。',
+  '死':'"死"是失令状态里最重的一种——日主被当令之气直接克制、毫无还手之力，是五个状态里对日主最不利的一种。'
+};
 
 // 强根：日主对应的临官/帝旺地支，数一数四柱地支里出现了几次
 // 甲寅 乙卯 丙巳 丁午 戊戌 己未 庚申 辛酉 壬亥 癸子
@@ -3528,11 +3536,14 @@ function computeGeJu(r, a){
 function openDeLingModal(r, dl){
   const dayElem = Math.floor(r.day.gan/2);
   const monthElem = ZHI_ELEM[r.month.zhi];
-  document.getElementById('modalTitle').textContent = '得令／失令怎么判断';
+  const tierOrder = ['旺','相','休','囚','死'];
+  const tierList = tierOrder.map(t=>`<div class="modal-p" style="margin-bottom:8px;">${t===dl.tier?'<b>▸ ':''}${WANGXIANGXIUQIUSI_TEXT[t]}${t===dl.tier?'</b>':''}</div>`).join('');
+  document.getElementById('modalTitle').textContent = '得令／失令怎么判断（旺相休囚死）';
   document.getElementById('modalBody').innerHTML = `
-    <div class="modal-sec"><div class="modal-h">判断依据</div><div class="modal-p">拿日主的五行，跟月支的五行比较五行生克关系——月支代表出生时节，是四柱里力量最重的一个位置："当令"就是说这个时节的气正好对日主有利。具体分五种情况：月支五行"生"日主、或者跟日主"同五行"，都算<b>得令</b>；月支五行"克"日主、日主"生"月支（被泄）、日主"克"月支（要花力气去克），这三种都算<b>失令</b>。</div></div>
-    <div class="modal-sec"><div class="modal-h">这张命盘</div><div class="modal-p">日主是${GAN[r.day.gan]}${ELEM_NAMES5[dayElem]}，月支是${ZHI[r.month.zhi]}${ELEM_NAMES5[monthElem]}——两者的关系是"${dl.label}"，所以判定为<b>${dl.verdict}</b>。</div></div>
-    <div class="modal-caveat">得令失令是判断日主旺衰最重要的一条参考，但不是唯一依据，还要结合强根、得势，以及四柱本身天干地支的力量一起看，我们旺衰卡片里的"扶抑法"计算已经把这些都综合进去了。</div>
+    <div class="modal-sec"><div class="modal-h">判断依据</div><div class="modal-p">拿日主的五行，跟月支代表的当令之气比较关系——这套判断传统上分五个级别，叫"旺相休囚死"，比笼统的"得令/失令"更精细：跟当令之气同五行是"旺"，被当令之气生是"相"，这两级算得令；日主去生当令之气是"休"，日主去克当令之气是"囚"，被当令之气克是"死"，这三级算失令。</div></div>
+    <div class="modal-sec"><div class="modal-h">五个级别（▸标出这张命盘命中的那一级）</div>${tierList}</div>
+    <div class="modal-sec"><div class="modal-h">这张命盘</div><div class="modal-p">日主是${GAN[r.day.gan]}${ELEM_NAMES5[dayElem]}，月支是${ZHI[r.month.zhi]}${ELEM_NAMES5[monthElem]}——两者的关系是"${dl.label}"，落在<b>${dl.tier}</b>这一级，所以判定为<b>${dl.verdict}</b>。</div></div>
+    <div class="modal-caveat">得令失令（旺相休囚死）是判断日主旺衰最重要的一条参考，但不是唯一依据，还要结合强根、得势，以及四柱本身天干地支的力量一起看，我们旺衰卡片里的"扶抑法"计算已经把这些都综合进去了。</div>
   `;
   document.getElementById('yongModal').classList.add('show');
 }
@@ -3908,7 +3919,7 @@ document.getElementById('goBtn').onclick = function(){
   const deshi = computeDeShi(r);
   const cs = computeChangSheng(r);
   document.getElementById('delingLine').innerHTML = `
-    <div class="dl-click">${dl.label}－<span class="${dl.verdict==='得令'?'dl-good':'dl-bad'}">${dl.verdict}</span></div>
+    <div class="dl-click">${dl.label}－<span class="${dl.verdict==='得令'?'dl-good':'dl-bad'}">${dl.verdict}（${dl.tier}）</span></div>
     <div class="root-click">${rootCount}强根</div>
     <div class="deshi-click">得势：${deshi.length?deshi.join('、'):'无'}</div>
     <div>十二长生：<span class="cs-click" data-pos="year">年支${cs.year}</span> · <span class="cs-click" data-pos="month">月支${cs.month}</span> · <span class="cs-click" data-pos="day">日支${cs.day}</span> · <span class="cs-click" data-pos="hour">时支${cs.hour}</span></div>
