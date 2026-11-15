@@ -71,7 +71,6 @@ button,input{font:inherit;color:inherit}
     </div>
     <div class="res" id="res" hidden></div>
   </div>
-  <div class="row chips" id="chips"></div>
 </div>
 <div class="card" id="card"></div>
 <div class="pop" id="pop" hidden></div>
@@ -794,17 +793,6 @@ function clearStress() {
   for (const [k, v] of adj) adj.set(k, v.filter(x => !s.has(x.id)));
   stressIds = []; finishAnims(); relayout(centerId);
 }
-const chipsEl = document.getElementById('chips');
-Object.keys(TYPES).filter(t => t !== 'center').forEach(t => {
-  const b = document.createElement('button'); b.className = 'chip on'; b.dataset.t = t;
-  b.innerHTML = '<i style="background:' + hex(t) + '"></i>' + TYPES[t].name;
-  b.onclick = () => {
-    if (activeTypes.has(t)) { if (activeTypes.size === 1) return; activeTypes.delete(t); b.classList.remove('on'); }
-    else { activeTypes.add(t); b.classList.add('on'); }
-    finishAnims(); relayout(centerId);
-  };
-  chipsEl.appendChild(b);
-});
 const backBtn = document.getElementById('back');
 function updateBack() { backBtn.disabled = hist.length === 0; }
 backBtn.onclick = () => { if (!hist.length) return; finishAnims(); goTo(hist.pop(), false); updateBack(); };
