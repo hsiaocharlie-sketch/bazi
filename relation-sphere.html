@@ -47,7 +47,7 @@ button,input{font:inherit;color:inherit}
 .pop .hd{display:flex;align-items:center;gap:8px}
 .pop .ttl{font-size:17px;font-weight:600;flex:1}
 .pop .x{background:rgba(255,255,255,.1);border:0;border-radius:50%;width:28px;height:28px;font-size:16px;line-height:1}
-.pop .tag{font-size:11px;padding:2px 8px;border-radius:999px;border:1px solid currentColor}
+.pop .tag{font-size:11px;padding:2px 8px;border-radius:999px;border:1px solid currentColor;white-space:nowrap}
 .pop .ln{font-size:14px;color:#cfd5e6;margin-top:6px;line-height:1.5}
 .pop .ln b{color:#fff;font-weight:500}
 .pop .sec{margin-top:12px;font-size:12px;color:var(--dim)}
@@ -85,14 +85,16 @@ button,input{font:inherit;color:inherit}
                    例：{"label":"结婚","date":"2005-06-18","place":"北京","src":{"title":"某某报道","url":"https://example.com"}}
              可选：src 关系来源，可写字符串、{title,url}，或它们的数组
              点击关系线或关系文字会弹出详情；没写来源的信息会标"来源：未注明"
-  type 取值：kin 亲属 | spouse 夫妻 | inlaw 姻亲 | servant 主仆 | other 师友
+  type 取值：kin 亲属 | spouse 夫妻 | love 感情（前任、绯闻对象等）| inlaw 姻亲 | servant 主仆 | other 师友
+  status（可选）：不写=确认的关系 | past 已结束 | rumor 传闻、未经证实 | denied 传闻且当事人否认
+                  rumor 和 denied 在球上画成虚线，弹窗里也会标明
   一对人目前只存一条关系。
 -->
 <script id="data" type="application/json">
 {
 "meta": {
 "name": "刘德华·公开关系（示例）",
-"version": 1,
+"version": 2,
 "center": "andylau"
 },
 "people": [
@@ -139,6 +141,16 @@ button,input{font:inherit;color:inherit}
 "Hanna Lau"
 ],
 "note": "刘德华与朱丽倩之女（未成年人，仅收录姓名与关系）"
+},
+{
+"id": "yukexin",
+"name": "喻可欣",
+"alias": [
+"Yu Ke-Hsin",
+"Eugenia Yu",
+"于可馨"
+],
+"note": "曾与刘德华交往，著有回忆录《情海星空—我与刘德华》"
 },
 {
 "id": "teddy",
@@ -214,13 +226,12 @@ button,input{font:inherit;color:inherit}
 "type": "spouse",
 "aIs": "丈夫",
 "bIs": "妻子",
-"from": "2008-06",
 "events": [
 {
 "label": "结婚（在拉斯维加斯秘密登记）",
 "date": "2008-06",
 "place": "美国拉斯维加斯",
-"note": "当时未公开，具体日期页面未载",
+"note": "当时未公开，具体日期来源未载",
 "src": [
 {
 "title": "维基百科：Carol Chu",
@@ -271,6 +282,63 @@ button,input{font:inherit;color:inherit}
 }
 },
 {
+"a": "andylau",
+"b": "yukexin",
+"type": "love",
+"status": "past",
+"aIs": "前男友",
+"bIs": "前女友",
+"events": [
+{
+"label": "相识",
+"date": "1983",
+"note": "据维基百科：当年秋天，刘德华赴台湾拍摄 Shanghai 13 期间",
+"src": {
+"title": "维基百科：Andy Lau",
+"url": "https://en.wikipedia.org/wiki/Andy_Lau"
+}
+},
+{
+"label": "签署\"结婚证书\"（婚书）",
+"date": "1985",
+"note": "据喻可欣母亲说法为1985年除夕前后；该文书没有法律效力",
+"src": [
+{
+"title": "Taipei Times 报道（2009年9月）",
+"url": "https://www.taipeitimes.com/News/feat/archives/2009/09/04/2003452772"
+},
+{
+"title": "中新网：刘德华认与喻可欣婚书（2009-09-02，转述《联合报》）",
+"url": "https://www.chinanews.com.cn/yl/news/2009/09-02/1846033.shtml"
+}
+]
+},
+{
+"label": "喻可欣出版回忆录《情海星空—我与刘德华》",
+"date": "2005",
+"src": [
+{
+"title": "维基百科：Andy Lau",
+"url": "https://en.wikipedia.org/wiki/Andy_Lau"
+},
+{
+"title": "中新网：刘德华认与喻可欣婚书（2009-09-02，转述《联合报》）",
+"url": "https://www.chinanews.com.cn/yl/news/2009/09-02/1846033.shtml"
+}
+]
+},
+{
+"label": "刘德华承认曾签婚书",
+"date": "2009-09",
+"note": "据《联合报》转述，报道未引述刘德华原话。喻可欣通过母亲表示\"没有意见，不想回应\"，母亲称不会要求赡养费、也不会提告重婚",
+"src": {
+"title": "中新网：刘德华认与喻可欣婚书（2009-09-02，转述《联合报》）",
+"url": "https://www.chinanews.com.cn/yl/news/2009/09-02/1846033.shtml"
+}
+}
+]
+},
+{
 "a": "teddy",
 "b": "andylau",
 "type": "other",
@@ -315,6 +383,7 @@ const DATA = JSON.parse(document.getElementById('data').textContent);
 const TYPES = {
   kin:    {name:'亲属', rgb:'242,193,78'},
   spouse: {name:'夫妻', rgb:'255,122,156'},
+  love:   {name:'感情', rgb:'255,110,64'},
   inlaw:  {name:'姻亲', rgb:'98,196,255'},
   servant:{name:'主仆', rgb:'143,227,138'},
   other:  {name:'师友', rgb:'196,160,255'},
@@ -331,7 +400,7 @@ DATA.relations.forEach(r => {
   adj.get(r.a).push({id: r.b, type: r.type, role: r.bIs, rel: r});
   adj.get(r.b).push({id: r.a, type: r.type, role: r.aIs, rel: r});
 });
-const activeTypes = new Set(['kin','spouse','inlaw','servant','other']);
+const activeTypes = new Set(['kin','spouse','love','inlaw','servant','other']);
 function neighborsOf(id) {
   const seen = new Set(), out = [];
   for (const x of (adj.get(id) || [])) {
@@ -587,9 +656,10 @@ function draw() {
   lastArcs = arcs.map(a => ({e: a.e, P: a.vs.map(proj), F: a.vs.map(v => v[2] > thr)}));
   function strokeArcs(front) {
     for (const a of arcs) {
+      const st = a.e.rel && a.e.rel.status, dashed = st === 'rumor' || st === 'denied';
       ctx.beginPath(); curvePath(a.vs, front);
       ctx.strokeStyle = 'rgba(' + TYPES[a.e.type].rgb + ',' + ((front ? 0.8 : 0.42) * a.e.alpha) + ')';
-      ctx.lineWidth = front ? 1.5 : 1; ctx.stroke();
+      ctx.lineWidth = front ? 1.5 : 1; ctx.setLineDash(dashed ? [5, 4] : []); ctx.stroke(); ctx.setLineDash([]);
       if (front && a.e === selEdge) {
         ctx.beginPath(); curvePath(a.vs, true);
         ctx.strokeStyle = 'rgba(255,255,255,0.9)'; ctx.lineWidth = 4; ctx.stroke();
@@ -799,17 +869,15 @@ function openPop(e) {
   const box = h('div', 'box'), hd = h('div', 'hd');
   hd.appendChild(h('div', 'ttl', A.name + ' ⇄ ' + B.name));
   const tag = h('span', 'tag', TYPES[e.type].name); tag.style.color = hex(e.type); hd.appendChild(tag);
+  const SM = {past: '已结束', rumor: '传闻 · 未经证实', denied: '传闻 · 当事人否认'};
+  if (SM[rel.status]) { const t2 = h('span', 'tag', SM[rel.status]); t2.style.color = '#e0a458'; hd.appendChild(t2); }
   const x = h('button', 'x', '×'); x.onclick = closePop; hd.appendChild(x);
   box.appendChild(hd);
-  const aRole = rel.a ? (rel.a === e.a ? rel.aIs : rel.bIs) : '';
-  const line = (p, q, role) => { const d = h('div', 'ln', p.name + ' 是 ' + q.name + ' 的 '); d.appendChild(h('b', '', role || '—')); return d; };
-  box.appendChild(line(A, B, aRole));
-  box.appendChild(line(B, A, e.role));
-  if (rel.from || rel.to) {
-    const t = rel.from && rel.to ? fmtDate(rel.from) + ' — ' + fmtDate(rel.to) : rel.from ? '自 ' + fmtDate(rel.from) : '至 ' + fmtDate(rel.to);
-    box.appendChild(h('div', 'ln', '关系时间：' + t));
-  }
   const evs = Array.isArray(rel.events) ? rel.events : [];
+  if (!evs.length && (rel.from || rel.to)) {   // 有事件时时间已在事件里，不重复
+    const t = rel.from && rel.to ? fmtDate(rel.from) + ' — ' + fmtDate(rel.to) : rel.from ? '自 ' + fmtDate(rel.from) : '至 ' + fmtDate(rel.to);
+    box.appendChild(h('div', 'ln', '时间：' + t));
+  }
   if (evs.length) {
     box.appendChild(h('div', 'sec', '相关事件'));
     evs.forEach(ev => {
@@ -824,7 +892,7 @@ function openPop(e) {
   }
   const rs = normSrc(rel.src);
   if (rs.length) box.appendChild(srcLine(rs));
-  if (!evs.length && !rs.length && !(rel.from || rel.to)) box.appendChild(h('div', 'empty', '暂无详细信息。结婚日期、地点等可补充在数据里，每条信息都要附上来源。'));
+  if (!evs.length && !rs.length && !(rel.from || rel.to)) box.appendChild(h('div', 'empty', '暂无详细信息。日期、地点、事件可补充在数据里，每条信息都要附上来源。'));
   elPop.appendChild(box); elPop.hidden = false;
   needsDraw = true; requestAnimationFrame(() => resize(false));
 }
